@@ -11,6 +11,11 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Fixed CI address, independent of any deployment .env file in the checkout.
+    env:
+      DASHBOARD_PUBLIC_URL: http://localhost:8090
+      DASHBOARD_PORT: "8090"
+      DASHBOARD_BIND_IP: 127.0.0.1
     steps:
       - uses: actions/checkout@v4
       - name: Valider Compose
