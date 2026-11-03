@@ -33,6 +33,10 @@ jobs:
           printf 'config-volume-ok\n' | sudo tee /home/esede-admin/Docker-volumes/screen/config/ci-volume-check >/dev/null
           sudo chown root:33 /home/esede-admin/Docker-volumes/screen/config/ci-volume-check
           sudo chmod 640 /home/esede-admin/Docker-volumes/screen/config/ci-volume-check
+      - name: Créer les réseaux externes sur le runner de test
+        run: |
+          docker network create www
+          docker network create nginx
       - name: Démarrer la version de production
         run: docker compose up -d --build --wait --wait-timeout 120
       - name: Vérifier HTTP, protection et persistance
