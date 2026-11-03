@@ -45,6 +45,18 @@ final class BoxClient {
         $cec = is_array($data['cec'] ?? null) ? $data['cec'] : [];
         $config = is_array($cec['config'] ?? null) ? $cec['config'] : [];
         $tv = is_array($cec['television'] ?? null) ? $cec['television'] : [];
+        $brand = self::short($tv['brand'] ?? null);
+        if ($brand === null || trim($brand) === '') {
+            // Registered EDID IDs: https://uefi.org/uefi-pnp-export
+            // PHP is the nonstandard ID of the Philips TVs
+            // installed at esede (confirmed on site by their owner).
+            $brand = match (self::short($tv['manufacturer_code'] ?? null)) {
+                'PHL', 'PHP' => 'Philips',
+                'SAM' => 'Samsung',
+                'GSM', 'LGE' => 'LG',
+                default => null,
+            };
+        }
         $capture = is_array($data['capture'] ?? null) ? $data['capture'] : [];
         $settings = [];
         foreach (['MODE','ON_TIME','OFF_TIME','WEEKEND_ENABLED','HDMI_LOCK_ENABLED'] as $key) $settings[$key] = self::short($config[$key] ?? null, 20);
@@ -53,7 +65,7 @@ final class BoxClient {
             'tv_status' => in_array($cec['tv_status'] ?? '', ['on','off','to_on','to_off'], true) ? $cec['tv_status'] : 'unknown',
             'tv_checked_at' => self::short($cec['checked_at'] ?? null),
             'tv_age_seconds' => is_numeric($cec['age_seconds'] ?? null) ? max(0, (int)$cec['age_seconds']) : null,
-            'brand' => self::short($tv['brand'] ?? null), 'tv_name' => self::short($tv['name'] ?? null),
+            'brand' => $brand, 'tv_name' => self::short($tv['name'] ?? null),
             'config' => $settings, 'revision' => self::short($cec['revision'] ?? null), 'timezone' => self::short($cec['timezone'] ?? null),
             'capture' => ['available' => ($capture['available'] ?? false) === true, 'updated_at' => self::short($capture['updated_at'] ?? null),
                 'age_seconds' => is_numeric($capture['age_seconds'] ?? null) ? max(0, (int)$capture['age_seconds']) : null]];
@@ -101,13 +113,10 @@ final class BoxClient {
         return dashboard_dir() . '/cec-' . hash('sha256', $box['address'] . "\0" . $box['key']) . '.json';
     }
     private static function legacyState(array $box, array $data, array $info): array {
-        $state = self::state([
-    'hostname' => self::deviceId($data),
-    'cec' => [
-        'config' => $data['config'] ?? [],
-        'television' => $data['television'] ?? null,
-    ],
-]);
+        $state = self::state(['hostname' => self::deviceId($data), 'cec' => [
+            'config' => $data['config'] ?? [],
+            'television' => $data['television'] ?? null,
+        ]]);
         $state['api_generation'] = 'legacy';
         $state['revision'] = self::legacyRevision($data['config']);
         // Legacy tv_status is the last sent command, not a response from the TV.
