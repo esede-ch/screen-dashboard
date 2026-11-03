@@ -2,6 +2,7 @@
 declare(strict_types=1);
 define('DASHBOARD_AUTH_PAGE', true);
 require dirname(__DIR__) . '/src/bootstrap.php';
+require_once dirname(__DIR__) . '/src/Assets.php';
 $error = '';
 $username = '';
 $ready = true;
@@ -40,7 +41,7 @@ function login_escape(string $value): string { return htmlspecialchars($value, E
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Connexion — Gestion des écrans d’affichage</title>
-  <link rel="stylesheet" href="/login.css">
+  <link rel="stylesheet" href="<?= dashboard_asset('login.css') ?>">
 </head>
 <body>
   <main class="login-layout">

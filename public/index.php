@@ -1,5 +1,6 @@
 <?php
 require dirname(__DIR__) . '/src/bootstrap.php';
+require_once dirname(__DIR__) . '/src/Assets.php';
 ?>
 <!doctype html>
 <html lang="fr">
@@ -8,9 +9,9 @@ require dirname(__DIR__) . '/src/bootstrap.php';
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="dashboard-token" content="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
   <title>Écrans — Tableau de bord</title>
-  <link rel="stylesheet" href="app.css">
-  <link rel="stylesheet" href="auth.css">
-  <script src="app.js" defer></script>
+  <link rel="stylesheet" href="<?= dashboard_asset('app.css') ?>">
+  <link rel="stylesheet" href="<?= dashboard_asset('auth.css') ?>">
+  <script src="<?= dashboard_asset('app.js') ?>" defer></script>
 </head>
 <body>
   <main>
