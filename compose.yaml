@@ -21,8 +21,8 @@ services:
       DASHBOARD_LDAP_BIND_DN: ${LDAP_BIND_DN:-}
       DASHBOARD_LDAP_BIND_PASSWORD_FILE: ${LDAP_BIND_PASSWORD_FILE:-}
     volumes:
-      - dashboard_data:/var/lib/dashboard
-      - ./config:/config:ro
+      - screen_data:/var/lib/dashboard
+      - screen_config:/config:ro
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m,mode=1777
@@ -38,4 +38,15 @@ services:
     stop_grace_period: 30s
 
 volumes:
-  dashboard_data:
+  screen_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/esede-admin/Docker-volumes/screen/data
+      o: bind
+  screen_config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/esede-admin/Docker-volumes/screen/config
+      o: bind

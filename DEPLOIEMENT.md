@@ -71,6 +71,15 @@ Une seule adresse publique est autorisée à la fois. Pour revenir aux essais di
 
 ### Démarrage
 
+Créer d’abord les deux dossiers sur le serveur Docker. Le pilote `local` avec `o: bind` nécessite qu’ils existent ; le dossier de données doit être accessible à l’utilisateur du conteneur (UID/GID 33).
+
+```sh
+sudo install -d -o 33 -g 33 -m 700 /home/esede-admin/Docker-volumes/screen/data
+sudo install -d -o root -g 33 -m 750 /home/esede-admin/Docker-volumes/screen/config
+```
+
+Pour une installation existante avec l’ancien volume `dashboard_data`, effectuer la migration décrite en section 4 **avant de recréer le conteneur**.
+
 ```sh
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 120
@@ -94,21 +103,50 @@ LDAP_USER_FILTER=(objectClass=person)
 LDAP_TLS_VERIFY=false
 ```
 
-StartTLS est obligatoire même si l’URI commence par `ldap://`. Le réglage `false` conserve l’exception autorisée pour le certificat autosigné du serveur Synology : le transport est chiffré, mais le certificat et le nom du serveur ne sont pas validés. Avec un certificat valide, passer à `true` ; un fichier d’autorité interne peut être placé dans `config/ldap-ca.pem`, avec `LDAP_CA_FILE=/config/ldap-ca.pem`.
+StartTLS est obligatoire même si l’URI commence par `ldap://`. Le réglage `false` conserve l’exception autorisée pour le certificat autosigné du serveur Synology : le transport est chiffré, mais le certificat et le nom du serveur ne sont pas validés. Avec un certificat valide, passer à `true` ; placer le fichier d’autorité interne dans `/home/esede-admin/Docker-volumes/screen/config/ldap-ca.pem`, avec `LDAP_CA_FILE=/config/ldap-ca.pem`.
 
-La lecture anonyme suffit pour l’annuaire actuel. Si un compte de lecture devient nécessaire, renseigner `LDAP_BIND_DN` et placer son mot de passe dans `config/ldap-bind-password.txt`, puis définir :
+La lecture anonyme suffit pour l’annuaire actuel. Si un compte de lecture devient nécessaire, renseigner `LDAP_BIND_DN` et placer son mot de passe dans `/home/esede-admin/Docker-volumes/screen/config/ldap-bind-password.txt`, puis définir :
 
 ```dotenv
 LDAP_BIND_PASSWORD_FILE=/config/ldap-bind-password.txt
 ```
 
-Le fichier doit être lisible par l’UID 33 dans le conteneur ; par exemple, sur le serveur Linux, propriétaire `33:33` et droits `0600`. Ne pas publier ce fichier. Les fichiers de `config/` et `.env` sont exclus de Git et de l’image.
+Le fichier doit être lisible par l’UID 33 dans le conteneur ; par exemple, sur le serveur Linux, propriétaire `root:33` et droits `0640`. Ne pas publier ce fichier. Ce dossier de configuration est hors du dépôt Git et monté en lecture seule dans le conteneur. `.env` reste dans le dossier du projet, ignoré par Git ; Compose le lit avant de lancer le conteneur.
 
 Dans Docker, les paramètres LDAP viennent des variables de Compose. Le fichier local `data/ldap.json` du Mac n’est pas nécessaire et n’est pas inclus. Les contrôles LDAP, l’expiration des sessions et la limite des tentatives restent identiques à ceux décrits dans le [manuel](README.md#connexion-ldap-et-droits-daccès).
 
 ## 4. Box et persistance
 
-Le volume Compose `dashboard_data` conserve les box, leurs clés API, l’ordre d’affichage, les caches et les sessions. Son nom Docker par défaut est `esede-ecrans_dashboard_data`. Ne pas changer le nom du projet Compose après installation, sauf à migrer ce volume.
+Les deux volumes Compose utilisent le pilote `local` avec un montage `bind`, vers les dossiers explicites du serveur :
+
+| Volume Compose | Dossier sur le serveur | Dossier dans le conteneur | Accès |
+| --- | --- | --- | --- |
+| `screen_data` | `/home/esede-admin/Docker-volumes/screen/data` | `/var/lib/dashboard` | Lecture et écriture |
+| `screen_config` | `/home/esede-admin/Docker-volumes/screen/config` | `/config` | Lecture seule |
+
+`screen_data` conserve les box, leurs clés API, l’ordre d’affichage, les caches et les sessions. `screen_config` conserve les certificats LDAP et les éventuels fichiers secrets de configuration. Les noms Docker par défaut sont `esede-ecrans_screen_data` et `esede-ecrans_screen_config`. Les fichiers restent dans les dossiers du serveur lors d’une recréation du conteneur. Le dossier `config/` du dépôt n’est plus monté.
+
+### Migrer l’ancien volume `dashboard_data`
+
+Si des box sont déjà enregistrées dans l’ancienne version, conserver le conteneur existant jusqu’à la fin de cette copie. Préparer les dossiers comme en section 2, puis exécuter depuis le dossier du projet, avant le premier `up` avec le nouveau Compose. La destination `data` doit être vide ; si elle contient déjà des fichiers, sauvegarder et choisir explicitement quelle installation conserver.
+
+```sh
+docker compose stop dashboard
+sudo docker compose cp dashboard:/var/lib/dashboard/. /home/esede-admin/Docker-volumes/screen/data/
+sudo chown -R 33:33 /home/esede-admin/Docker-volumes/screen/data
+sudo chmod 700 /home/esede-admin/Docker-volumes/screen/data
+```
+
+Si l’ancien dossier `./config/` contient des certificats ou secrets, copier aussi son contenu :
+
+```sh
+sudo cp -a ./config/. /home/esede-admin/Docker-volumes/screen/config/
+sudo chown -R root:33 /home/esede-admin/Docker-volumes/screen/config
+sudo find /home/esede-admin/Docker-volumes/screen/config -type d -exec chmod 750 {} \;
+sudo find /home/esede-admin/Docker-volumes/screen/config -type f -exec chmod 640 {} \;
+```
+
+Recréer ensuite le conteneur avec le nouveau Compose et vérifier la liste des box. L’ancien volume `esede-ecrans_dashboard_data` reste conservé ; il n’est pas supprimé automatiquement par cette migration.
 
 Le premier lancement utilise une liste vide : ajouter les box depuis l’interface. Les clés API réelles ne sont pas embarquées dans le dépôt GitHub.
 
@@ -143,7 +181,7 @@ Les données restent dans le volume. Après une modification de `.env`, `docker 
 
 ## 6. Sauvegarde et restauration
 
-Sauvegarder `.env`, les éventuels fichiers de `config/`, et la liste des box. Exemple de copie cohérente de la liste, service arrêté pendant la lecture :
+Sauvegarder `.env`, le dossier `/home/esede-admin/Docker-volumes/screen/config`, et la liste des box. Exemple de copie cohérente de la liste, service arrêté pendant la lecture :
 
 ```sh
 umask 077
@@ -160,7 +198,7 @@ cp .env backups/dashboard.env
 
 Pour restaurer sur une nouvelle installation avec un volume vide, utiliser l’import de la section précédente. Ne pas restaurer les caches ni les anciennes sessions : ils sont recréés automatiquement.
 
-`docker compose down` garde le volume. **`docker compose down -v` supprime les données persistantes** ; cette dernière commande est utilisée uniquement dans le workflow de test sur GitHub.
+`docker compose down` garde les volumes. Avec ces deux montages `local`/`bind`, `docker compose down -v` retire les objets volumes Docker mais ne supprime pas le contenu des dossiers hôtes. Cela ne remplace pas une sauvegarde : l’application peut modifier les données et une suppression directe des dossiers détruit leur contenu. Le workflow utilise des dossiers jetables sur le runner GitHub.
 
 ## 7. Diagnostic
 
@@ -176,12 +214,12 @@ docker compose exec dashboard php -r 'require "src/bootstrap.php"; (new LdapDire
 - **Boucle vers la connexion en test HTTP** : vérifier que l’URL publique n’est pas restée en HTTPS.
 - **Annuaire indisponible** : vérifier la route vers le LDAP, son port, le certificat et les paramètres de lecture.
 - **Box hors ligne** : le réseau du conteneur doit atteindre les IP/DNS des box, pas seulement le navigateur.
-- **Droits du volume** : le conteneur utilise UID/GID 33. Le volume nommé neuf est initialisé automatiquement avec les bons droits. Un ancien volume ou un montage manuel doit appartenir à cet utilisateur.
+- **Dossiers absents ou droits du volume** : créer les deux dossiers avec les commandes de la section 2. `data` doit appartenir à `33:33` ; `config` doit être traversable et ses fichiers lisibles par le groupe 33. Le conteneur ne tourne pas en root et ne peut pas réparer un dossier hôte appartenant à root.
 
 Le contrôle de santé vérifie la page de connexion et PHP, sans interroger les TV ni le LDAP. L’indisponibilité d’une TV ne redémarre pas le conteneur. Comme avant, les contrôles des box sont déclenchés uniquement par les pages actives.
 
 ## 8. Vérifications et GitHub Actions
 
-Le workflow `.github/workflows/checks.yml` construit l’image de test, lance les tests sur un annuaire LDAP local fictif et des box simulées, puis construit et démarre la stack de production. Il vérifie les routes HTTP, les protections, l’utilisateur non privilégié et la persistance après recréation. Il ne contacte pas les équipements esede et ne publie aucune image ni ne déploie sur ton serveur.
+Le workflow `.github/workflows/checks.yml` construit l’image de test, lance les tests sur un annuaire LDAP local fictif et des box simulées, prépare les deux dossiers hôtes avec leurs permissions, puis construit et démarre la stack de production. Il vérifie les routes HTTP, les protections, l’utilisateur non privilégié, la lecture de la configuration hôte, l’écriture des données dans le dossier hôte et leur persistance après recréation. Il ne contacte pas les équipements esede et ne publie aucune image ni ne déploie sur ton serveur.
 
 Vérifications réalisées lors de la préparation : syntaxe YAML/PHP/shell et tests applicatifs locaux. **Le conteneur n’a pas été construit ni démarré sur le Mac, où le moteur Docker est absent.** Le workflow vérifiera cette partie après publication sur GitHub ; sur le serveur, la commande `docker compose up -d --build --wait` constitue la vérification de démarrage.

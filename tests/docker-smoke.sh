@@ -33,9 +33,19 @@ if [ "$actual_uid" != 33 ]; then
 fi
 printf 'OK utilisateur non privilégié : UID 33\n'
 docker compose exec -T dashboard php -r '
+if (trim(file_get_contents("/config/ci-volume-check")) !== "config-volume-ok") {
+    fwrite(STDERR,"ERREUR montage du dossier de configuration hôte\n"); exit(1);
+}
+echo "OK configuration lue depuis le dossier hôte\n";'
+docker compose exec -T dashboard php -r '
 $path="/var/lib/dashboard/ci-persistence";
 if (file_put_contents($path, "ok") !== 2) { fwrite(STDERR,"ERREUR écriture du volume persistant\n"); exit(1); }
 echo "OK écriture du volume persistant\n";'
+if ! sudo test -f /home/esede-admin/Docker-volumes/screen/data/ci-persistence; then
+    printf 'ERREUR : données absentes du dossier persistant hôte\n' >&2
+    exit 1
+fi
+printf 'OK données présentes dans le dossier hôte\n'
 docker compose up -d --force-recreate --wait --wait-timeout 120
 docker compose exec -T dashboard php -r '
 $path="/var/lib/dashboard/ci-persistence";

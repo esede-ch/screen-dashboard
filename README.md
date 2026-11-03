@@ -4,17 +4,36 @@ Un tableau de bord avec **authentification LDAP**, réservé aux membres du grou
 
 ## Déployer sur un serveur Docker
 
-Le projet fournit `compose.yaml`, un `Dockerfile` PHP 8.5/Apache, un volume persistant et un workflow GitHub Actions. **Docker Compose sans Swarm**, HTTP sur le port **8090** ; le HTTPS reste géré par ton reverse proxy.
+Le projet fournit `compose.yaml`, un `Dockerfile` PHP 8.5/Apache, deux volumes persistants et un workflow GitHub Actions. Les dossiers sont `/home/esede-admin/Docker-volumes/screen/data` et `/home/esede-admin/Docker-volumes/screen/config`. **Docker Compose sans Swarm**, HTTP sur le port **8090** ; le HTTPS reste géré par ton reverse proxy.
 
 Consulter le **[guide Docker et GitHub](DEPLOIEMENT.md)** pour la publication, la configuration, le lancement, l’import des box et les sauvegardes.
 
 ```sh
 cp .env.example .env
 # Renseigner dans .env l’URL publique du serveur ou du reverse proxy.
+sudo install -d -o 33 -g 33 -m 700 /home/esede-admin/Docker-volumes/screen/data
+sudo install -d -o root -g 33 -m 750 /home/esede-admin/Docker-volumes/screen/config
 docker compose up -d --build --wait --wait-timeout 120
 ```
 
 Les instructions ci-dessous décrivent les fonctions communes et les essais locaux sur Mac. Dans Docker, la configuration LDAP vient de Compose et le dossier de données est `/var/lib/dashboard` dans le volume persistant.
+
+## Démarrer sur ton Mac
+
+1. Double-clique sur **`Lancer-le-dashboard.command`** dans ce dossier. PHP 8.5 et les extensions cURL et LDAP sont déjà présents sur ton ordinateur.
+2. Garde la fenêtre du Terminal ouverte.
+3. Ouvre **[http://127.0.0.1:8090](http://127.0.0.1:8090)** dans ton navigateur et connecte-toi avec ton identifiant LDAP et ton mot de passe habituel. Le compte doit être membre direct du groupe `screen`.
+
+Tu peux aussi lancer le serveur depuis le Terminal :
+
+```sh
+cd "/Users/philippe/Documents/ChatGPT/esede/dashboard-ecrans"
+./start.sh
+```
+
+Pour arrêter le serveur, appuie sur **Ctrl+C** dans cette fenêtre. Pour le relancer, utilise à nouveau le lanceur. Si le port 8090 est déjà occupé par ce tableau de bord, ouvre simplement son adresse existante.
+
+Le serveur écoute uniquement sur cet ordinateur. Ton Mac doit pouvoir joindre les box, par le réseau local ou par ton VPN. Cette version est prévue pour tes essais locaux ; aucun hébergement externe n’est nécessaire.
 
 ## Connexion LDAP et droits d’accès
 
