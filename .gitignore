@@ -1,0 +1,17 @@
+/data/*
+!/data/.gitkeep
+*.log
+.DS_Store
+__pycache__/
+.env
+.env.*
+!.env.example
+/config/*
+!/config/.gitkeep
+/backups/
+/dist/
+/*.png
+*.zip
+*.tar.gz
+*.pem
+*.key
