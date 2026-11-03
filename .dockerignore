@@ -1,0 +1,14 @@
+**
+!Dockerfile
+!docker/
+!docker/**
+!src/
+!src/**
+!public/
+!public/**
+!tests/
+!tests/**
+tests/__pycache__/
+public/maquettes/
+**/.DS_Store
+**/*.log
