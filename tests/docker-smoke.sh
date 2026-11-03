@@ -1,13 +1,28 @@
 #!/bin/sh
-# CI only: against the stack just started on localhost, with a disposable volume.
+# CI only: HTTP inside the container, with disposable host directories.
+# No published host port is required by the reverse-proxy deployment.
 set -eu
 
 check_http() {
     expected=$1
     path=$2
-    shift 2
-    if actual=$(curl --silent --show-error --noproxy '*' --connect-timeout 5 --max-time 15 \
-        --output /dev/null --write-out '%{http_code}' "$@" "http://127.0.0.1:8090$path"); then
+    host=$3
+    if actual=$(docker compose exec -T dashboard php -r '
+$c = curl_init("http://127.0.0.1:8080".$argv[1]);
+curl_setopt_array($c, [
+    CURLOPT_HTTPHEADER => ["Host: ".$argv[2]],
+    CURLOPT_PROXY => "",
+    CURLOPT_CONNECTTIMEOUT => 5,
+    CURLOPT_TIMEOUT => 15,
+    CURLOPT_FOLLOWLOCATION => false,
+    CURLOPT_WRITEFUNCTION => static function ($handle, $body) { return strlen($body); },
+]);
+if (curl_exec($c) === false) {
+    fwrite(STDERR, "Erreur HTTP interne : ".curl_error($c)."\n");
+    exit(1);
+}
+echo curl_getinfo($c, CURLINFO_HTTP_CODE);
+' -- "$path" "$host"); then
         if [ "$actual" = "$expected" ]; then
             printf 'OK HTTP %s : %s\n' "$actual" "$path"
         else
@@ -20,12 +35,12 @@ check_http() {
     fi
 }
 
-check_http 303 / -H 'Host: localhost:8090'
-check_http 200 /login.php -H 'Host: localhost:8090'
-check_http 401 '/api.php?action=status' -H 'Host: localhost:8090'
-check_http 200 /assets/esede-logo.png -H 'Host: localhost:8090'
-check_http 404 /data/boxes.json -H 'Host: localhost:8090'
-check_http 403 /login.php -H 'Host: refused.example'
+check_http 303 / localhost:8090
+check_http 200 /login.php localhost:8090
+check_http 401 '/api.php?action=status' localhost:8090
+check_http 200 /assets/esede-logo.png localhost:8090
+check_http 404 /data/boxes.json localhost:8090
+check_http 403 /login.php refused.example
 actual_uid=$(docker compose exec -T dashboard id -u)
 if [ "$actual_uid" != 33 ]; then
     printf 'ERREUR utilisateur : UID attendu 33, reçu %s\n' "$actual_uid" >&2
