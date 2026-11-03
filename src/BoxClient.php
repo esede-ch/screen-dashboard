@@ -101,7 +101,13 @@ final class BoxClient {
         return dashboard_dir() . '/cec-' . hash('sha256', $box['address'] . "\0" . $box['key']) . '.json';
     }
     private static function legacyState(array $box, array $data, array $info): array {
-        $state = self::state(['hostname' => self::deviceId($data), 'cec' => ['config' => $data['config'] ?? []]]);
+        $state = self::state([
+    'hostname' => self::deviceId($data),
+    'cec' => [
+        'config' => $data['config'] ?? [],
+        'television' => $data['television'] ?? null,
+    ],
+]);
         $state['api_generation'] = 'legacy';
         $state['revision'] = self::legacyRevision($data['config']);
         // Legacy tv_status is the last sent command, not a response from the TV.
