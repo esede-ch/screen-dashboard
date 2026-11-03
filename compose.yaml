@@ -1,0 +1,41 @@
+name: esede-ecrans
+
+services:
+  dashboard:
+    image: esede-ecrans:local
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_BIND_IP:-0.0.0.0}:${DASHBOARD_PORT:-8090}:8080"
+    environment:
+      TZ: Europe/Zurich
+      DASHBOARD_PUBLIC_URL: ${DASHBOARD_PUBLIC_URL:-http://localhost:8090}
+      DASHBOARD_LDAP_URI: ${LDAP_URI:-ldap://192.168.1.7:389}
+      DASHBOARD_LDAP_BASE_DN: ${LDAP_BASE_DN:-dc=ldap,dc=esede,dc=lan}
+      DASHBOARD_LDAP_GROUP_DN: ${LDAP_GROUP_DN:-cn=screen,cn=groups,dc=ldap,dc=esede,dc=lan}
+      DASHBOARD_LDAP_LOGIN_ATTRIBUTE: ${LDAP_LOGIN_ATTRIBUTE:-uid}
+      DASHBOARD_LDAP_USER_FILTER: ${LDAP_USER_FILTER:-(objectClass=person)}
+      DASHBOARD_LDAP_TLS_VERIFY: ${LDAP_TLS_VERIFY:-false}
+      DASHBOARD_LDAP_CA_FILE: ${LDAP_CA_FILE:-}
+      DASHBOARD_LDAP_BIND_DN: ${LDAP_BIND_DN:-}
+      DASHBOARD_LDAP_BIND_PASSWORD_FILE: ${LDAP_BIND_PASSWORD_FILE:-}
+    volumes:
+      - dashboard_data:/var/lib/dashboard
+      - ./config:/config:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    stop_grace_period: 30s
+
+volumes:
+  dashboard_data:

@@ -1,0 +1,11 @@
+{
+  "uri": "ldap://192.168.1.7:389",
+  "base_dn": "dc=ldap,dc=esede,dc=lan",
+  "group_dn": "cn=screen,cn=groups,dc=ldap,dc=esede,dc=lan",
+  "login_attribute": "uid",
+  "user_filter": "(objectClass=person)",
+  "bind_dn": "",
+  "bind_password": "",
+  "tls_verify": true,
+  "ca_file": ""
+}
