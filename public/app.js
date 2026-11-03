@@ -195,7 +195,9 @@
     captureTime.textContent=capture?.updated_at ? `${capture.age_seconds>90 || !online || !capture.available ? 'Capture ancienne · ' : 'Capture · '}${time(capture.updated_at)}` : capture?.available ? 'Capture · date inconnue' : images.has(box.id) ? 'Dernière image · capture indisponible' : 'Pas de capture';
     captureTime.classList.toggle('stale',!online || !capture?.available || capture?.age_seconds>90);
     captureTime.title=capture?.updated_at ? new Date(capture.updated_at).toLocaleString('fr-CH') : '';
-    card.querySelector('.tv-brand').textContent=state?.tv_name || state?.brand || 'Télévision';
+    const tvBrand=state?.brand?.trim(), tvName=state?.tv_name?.trim();
+    const nameIncludesBrand=tvBrand && tvName && (tvName.toLowerCase()===tvBrand.toLowerCase() || tvName.toLowerCase().startsWith(tvBrand.toLowerCase()+' '));
+    card.querySelector('.tv-brand').textContent=tvBrand && tvName && !nameIncludesBrand ? `${tvBrand} · ${tvName}` : tvName || tvBrand || 'Télévision';
     const tvStates={on:'Allumée',off:'En veille',to_on:'Allumage en cours',to_off:'Mise en veille en cours',unknown:'État non communiqué'};
     const tvStale=!!state && (!online || state.tv_age_seconds>120);
     const tvStatus=card.querySelector('.tv-status');
