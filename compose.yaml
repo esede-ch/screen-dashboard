@@ -23,6 +23,9 @@ services:
     volumes:
       - screen_data:/var/lib/dashboard
       - screen_config:/config:ro
+    networks:
+      - www
+      - nginx
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m,mode=1777
@@ -36,6 +39,12 @@ services:
         max-size: "10m"
         max-file: "3"
     stop_grace_period: 30s
+
+networks:
+  www:
+    external: true
+  nginx:
+    external: true
 
 volumes:
   screen_data:

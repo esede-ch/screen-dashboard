@@ -71,6 +71,15 @@ Une seule adresse publique est autorisée à la fois. Pour revenir aux essais di
 
 ### Démarrage
 
+Le service `dashboard` est connecté aux deux réseaux Docker externes `www` et `nginx`. Ils doivent exister sur le même serveur Docker. Compose les réutilise sans les créer ni les supprimer. Pour les créer uniquement s’ils sont absents :
+
+```sh
+docker network inspect www >/dev/null 2>&1 || docker network create www
+docker network inspect nginx >/dev/null 2>&1 || docker network create nginx
+```
+
+Un reverse proxy connecté à l’un de ces réseaux peut joindre le service sur `http://dashboard:8080` ; il doit transmettre le `Host` public configuré. Le port hôte `8090` reste disponible pour les tests HTTP.
+
 Créer d’abord les deux dossiers sur le serveur Docker. Le pilote `local` avec `o: bind` nécessite qu’ils existent ; le dossier de données doit être accessible à l’utilisateur du conteneur (UID/GID 33).
 
 ```sh

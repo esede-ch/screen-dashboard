@@ -11,6 +11,8 @@ Consulter le **[guide Docker et GitHub](DEPLOIEMENT.md)** pour la publication, l
 ```sh
 cp .env.example .env
 # Renseigner dans .env l’URL publique du serveur ou du reverse proxy.
+docker network inspect www >/dev/null 2>&1 || docker network create www
+docker network inspect nginx >/dev/null 2>&1 || docker network create nginx
 sudo install -d -o 33 -g 33 -m 700 /home/esede-admin/Docker-volumes/screen/data
 sudo install -d -o root -g 33 -m 750 /home/esede-admin/Docker-volumes/screen/config
 docker compose up -d --build --wait --wait-timeout 120
