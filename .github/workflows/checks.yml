@@ -26,6 +26,13 @@ jobs:
         run: |
           docker run --rm --entrypoint python3 -e DASHBOARD_DATA_DIR= esede-ecrans:test tests/integration.py
           docker run --rm --entrypoint php esede-ecrans:test tests/deployment.php
+      - name: Préparer les dossiers persistants de test
+        run: |
+          sudo install -d -o 33 -g 33 -m 700 /home/esede-admin/Docker-volumes/screen/data
+          sudo install -d -o root -g 33 -m 750 /home/esede-admin/Docker-volumes/screen/config
+          printf 'config-volume-ok\n' | sudo tee /home/esede-admin/Docker-volumes/screen/config/ci-volume-check >/dev/null
+          sudo chown root:33 /home/esede-admin/Docker-volumes/screen/config/ci-volume-check
+          sudo chmod 640 /home/esede-admin/Docker-volumes/screen/config/ci-volume-check
       - name: Démarrer la version de production
         run: docker compose up -d --build --wait --wait-timeout 120
       - name: Vérifier HTTP, protection et persistance
