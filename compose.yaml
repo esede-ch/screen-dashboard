@@ -2,6 +2,7 @@ name: esede-ecrans
 
 services:
   dashboard:
+    container_name: screen-dashboard
     image: esede-ecrans:local
     build:
       context: .
