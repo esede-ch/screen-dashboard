@@ -1,6 +1,6 @@
 # Déploiement Docker Compose et GitHub
 
-Le dashboard fonctionne avec **Docker Engine et Docker Compose v2, sans Swarm**. Un seul conteneur fournit Apache et PHP 8.5 avec LDAP. Le port **8090 du serveur sert du HTTP**. Le HTTPS est assuré par ton reverse proxy existant ; aucun proxy ni certificat HTTPS n’est ajouté à cette stack.
+Le dashboard fonctionne avec **Docker Engine et Docker Compose v2, sans Swarm**. Le conteneur `screen-dashboard` fournit Apache et PHP 8.5 avec LDAP, en HTTP sur son port interne **8080**. **Aucun port n’est publié sur le serveur.** Le HTTPS est assuré par ton reverse proxy existant, connecté au réseau `nginx` ou `www` ; aucun proxy ni certificat HTTPS n’est ajouté à cette stack.
 
 ## 1. Publier le projet sur GitHub
 
@@ -33,31 +33,17 @@ cp .env.example .env
 
 Modifier `.env` avant le premier lancement.
 
-### Test en HTTP
-
-Par exemple, si l’IP du serveur est `192.168.1.50` :
-
-```dotenv
-DASHBOARD_PUBLIC_URL=http://192.168.1.50:8090
-DASHBOARD_PORT=8090
-DASHBOARD_BIND_IP=0.0.0.0
-```
-
-Le port doit apparaître dans l’adresse publique. Le réglage fourni `http://localhost:8090` convient uniquement à un navigateur ouvert sur le serveur lui-même.
-
 ### Utilisation derrière ton reverse proxy HTTPS
 
 ```dotenv
-DASHBOARD_PUBLIC_URL=https://ecrans.exemple.ch
-DASHBOARD_PORT=8090
-DASHBOARD_BIND_IP=0.0.0.0
+DASHBOARD_PUBLIC_URL=https://ecrans.esede.ch
 ```
 
 Configurer le reverse proxy :
 
 | Réglage | Valeur |
 | --- | --- |
-| Adresse amont | `http://IP-DU-SERVEUR-DOCKER:8090` |
+| Adresse amont | `http://screen-dashboard:8080` |
 | En-tête `Host` transmis | Le nom public, par exemple `ecrans.exemple.ch` |
 | Délai d’attente | Au moins 120 secondes pour les commandes CEC |
 | Cache du proxy | Désactivé pour les pages PHP et l’API |
@@ -65,9 +51,9 @@ Configurer le reverse proxy :
 
 Le conteneur reçoit toujours du HTTP. Le réglage `DASHBOARD_PUBLIC_URL=https://…` indique l’adresse utilisée par le navigateur, permet les cookies `Secure` et le contrôle correct de l’origine des requêtes. Les en-têtes `X-Forwarded-*` ne remplacent pas cette configuration. Le proxy doit conserver le `Host` public, et le site doit être servi à la racine du domaine, pas sous un préfixe de chemin.
 
-Si le proxy tourne directement sur le même hôte, `DASHBOARD_BIND_IP=127.0.0.1` peut limiter le port à cet hôte. Pour un proxy dans un autre conteneur ou sur une autre machine, utiliser une adresse accessible depuis celui-ci.
+Le reverse proxy doit partager l’un des réseaux Docker externes avec le dashboard. `DASHBOARD_PORT` et `DASHBOARD_BIND_IP` ne sont plus utilisés. Les autres conteneurs de ces réseaux peuvent aussi joindre le port interne 8080 ; l’authentification LDAP reste requise.
 
-Une seule adresse publique est autorisée à la fois. Pour revenir aux essais directs en HTTP, remettre l’URL HTTP dans `.env` puis recréer le conteneur. Cela évite de mélanger les cookies d’une session HTTPS et ceux des tests HTTP.
+Une seule adresse publique est autorisée à la fois. `.env` reste à côté de `compose.yaml`, où Compose le lit automatiquement. Avec Portainer, renseigner ces mêmes variables dans l’environnement de la stack.
 
 ### Démarrage
 
@@ -78,7 +64,7 @@ docker network inspect www >/dev/null 2>&1 || docker network create www
 docker network inspect nginx >/dev/null 2>&1 || docker network create nginx
 ```
 
-Un reverse proxy connecté à l’un de ces réseaux peut joindre le service sur `http://dashboard:8080` ; il doit transmettre le `Host` public configuré. Le port hôte `8090` reste disponible pour les tests HTTP.
+Un reverse proxy connecté à l’un de ces réseaux peut joindre le service sur `http://screen-dashboard:8080` ; il doit transmettre le `Host` public configuré. Le port hôte `8090` n’est pas publié.
 
 Créer d’abord les deux dossiers sur le serveur Docker. Le pilote `local` avec `o: bind` nécessite qu’ils existent ; le dossier de données doit être accessible à l’utilisateur du conteneur (UID/GID 33).
 
@@ -220,7 +206,7 @@ docker compose exec dashboard php -r 'require "src/bootstrap.php"; (new LdapDire
 ```
 
 - **Adresse refusée** : `DASHBOARD_PUBLIC_URL` doit correspondre au nom/IP et au port utilisés ; le proxy doit conserver ce `Host`.
-- **Boucle vers la connexion en test HTTP** : vérifier que l’URL publique n’est pas restée en HTTPS.
+- **Erreur 502 du reverse proxy** : vérifier son accès au réseau `nginx` ou `www`, la destination `screen-dashboard:8080` et l’utilisation de HTTP vers le conteneur.
 - **Annuaire indisponible** : vérifier la route vers le LDAP, son port, le certificat et les paramètres de lecture.
 - **Box hors ligne** : le réseau du conteneur doit atteindre les IP/DNS des box, pas seulement le navigateur.
 - **Dossiers absents ou droits du volume** : créer les deux dossiers avec les commandes de la section 2. `data` doit appartenir à `33:33` ; `config` doit être traversable et ses fichiers lisibles par le groupe 33. Le conteneur ne tourne pas en root et ne peut pas réparer un dossier hôte appartenant à root.
@@ -230,5 +216,7 @@ Le contrôle de santé vérifie la page de connexion et PHP, sans interroger les
 ## 8. Vérifications et GitHub Actions
 
 Le workflow `.github/workflows/checks.yml` construit l’image de test, lance les tests sur un annuaire LDAP local fictif et des box simulées, prépare les deux dossiers hôtes avec leurs permissions, puis construit et démarre la stack de production. Il vérifie les routes HTTP, les protections, l’utilisateur non privilégié, la lecture de la configuration hôte, l’écriture des données dans le dossier hôte et leur persistance après recréation. Il ne contacte pas les équipements esede et ne publie aucune image ni ne déploie sur ton serveur.
+
+Les requêtes HTTP du test sont exécutées dans le conteneur via PHP/cURL sur `127.0.0.1:8080`, sans publication de port. L’en-tête `Host: localhost:8090` correspond uniquement à l’URL fictive imposée par le workflow pour vérifier le contrôle d’adresse ; il ne publie aucun port. Le reverse proxy de production n’est pas testé par ce workflow.
 
 Vérifications réalisées lors de la préparation : syntaxe YAML/PHP/shell et tests applicatifs locaux. **Le conteneur n’a pas été construit ni démarré sur le Mac, où le moteur Docker est absent.** Le workflow vérifiera cette partie après publication sur GitHub ; sur le serveur, la commande `docker compose up -d --build --wait` constitue la vérification de démarrage.

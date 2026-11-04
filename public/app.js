@@ -191,10 +191,7 @@
     const connection=card.querySelector('.connection');
     connection.className='connection '+(online?'online':box.online===false?'offline':'');
     connection.textContent=pendingReboots.has(box.id)?'Redémarrage…':online?'Joignable':box.online===false?({key:'Clé refusée',api:'API à vérifier',offline:'Hors ligne'}[box.error_kind]||'À vérifier'):'Vérification…';
-    const capture=state?.capture, captureTime=card.querySelector('.capture-time');
-    captureTime.textContent=capture?.updated_at ? `${capture.age_seconds>90 || !online || !capture.available ? 'Capture ancienne · ' : 'Capture · '}${time(capture.updated_at)}` : capture?.available ? 'Capture · date inconnue' : images.has(box.id) ? 'Dernière image · capture indisponible' : 'Pas de capture';
-    captureTime.classList.toggle('stale',!online || !capture?.available || capture?.age_seconds>90);
-    captureTime.title=capture?.updated_at ? new Date(capture.updated_at).toLocaleString('fr-CH') : '';
+    const capture=state?.capture;
     const tvBrand=state?.brand?.trim(), tvName=state?.tv_name?.trim();
     const nameIncludesBrand=tvBrand && tvName && (tvName.toLowerCase()===tvBrand.toLowerCase() || tvName.toLowerCase().startsWith(tvBrand.toLowerCase()+' '));
     card.querySelector('.tv-brand').textContent=tvBrand && tvName && !nameIncludesBrand ? `${tvBrand} · ${tvName}` : tvName || tvBrand || 'Télévision';
@@ -203,9 +200,6 @@
     const tvStatus=card.querySelector('.tv-status');
     tvStatus.textContent=(state ? tvStates[state.tv_status] || tvStates.unknown : tvStates.unknown) + (tvStale ? ' · à revérifier' : '');
     tvStatus.classList.toggle('stale',tvStale);
-    const checkedDate=state?.tv_checked_at ? new Date(state.tv_checked_at) : null;
-    const dated=checkedDate && !Number.isNaN(+checkedDate);
-    card.querySelector('.tv-checked').textContent=dated ? `Vérification CEC · ${checkedDate.toLocaleString('fr-CH')}` : state && state.tv_status!=='unknown' ? 'Date de vérification non communiquée' : 'Aucune réponse CEC disponible';
     const config=state?.config;
     card.querySelector('.schedule').textContent=config ? (config.MODE==='auto' ? `${formatTime(config.ON_TIME)} – ${formatTime(config.OFF_TIME)} · ${config.WEEKEND_ENABLED==='yes'?'Tous les jours':'Lun. – ven.'}` : config.MODE==='force_on'?'Allumage forcé · horaires conservés':'Veille forcée · horaires conservés') : 'Réglages indisponibles';
     for(const button of card.querySelectorAll('[data-mode]')) { button.disabled=!online || active || pendingReboots.has(box.id); button.setAttribute('aria-pressed',String(config?.MODE===button.dataset.mode)); }
@@ -238,12 +232,16 @@
           if(!boxes.has(box.id) || boxes.get(box.id).revision!==box.revision){URL.revokeObjectURL(url);continue;}
           const previous=images.get(box.id);
           images.set(box.id,url); const card=cards.get(box.id), img=card.querySelector('.preview img');
+          card.querySelector('.preview').removeAttribute('title');
           img.src=url; img.hidden=false; card.querySelector('.preview-placeholder').hidden=true; card.querySelector('.preview').disabled=false;
           if(previewId===box.id) $('large-preview').src=url;
           if(previous)URL.revokeObjectURL(previous);
         } catch(_) {
           const card=cards.get(box.id);
-          if(card) { card.querySelector('.capture-time').textContent=images.has(box.id)?'Dernière image · actualisation indisponible':'Capture indisponible'; card.querySelector('.capture-time').classList.add('stale'); }
+          if(card) {
+            card.querySelector('.preview').title=images.has(box.id)?'Dernière image disponible : actualisation indisponible.':'Image indisponible';
+            if(!images.has(box.id))card.querySelector('.preview-placeholder').textContent='Image indisponible';
+          }
         } finally { imageBusy.delete(box.id); }
       }
     }

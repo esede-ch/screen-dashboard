@@ -68,7 +68,7 @@ try {
                 $reply = BoxClient::parse(BoxClient::request($box, '/admin/?action=cec-config', 'POST', $data, 60000));
                 if (($reply['saved'] ?? false) !== true) throw new RuntimeException('La box n’a pas confirmé l’enregistrement des réglages. Vérifier son état avant de réessayer.', 502);
                 $result = ['ok' => true, 'saved' => true, 'applied' => ($reply['applied'] ?? false) === true,
-                    'message' => ($reply['applied'] ?? false) ? 'Réglages enregistrés et commande envoyée.' : 'Réglages enregistrés, mais la commande CEC n’a pas pu être envoyée. Vérifier son état.'];
+                    'message' => ($reply['applied'] ?? false) ? 'Réglages enregistrés et commande envoyée.' : 'Réglages enregistrés, mais la commande n’a pas pu être envoyée. Vérifier son état.'];
             }
         } elseif ($context['legacy']) {
             $result = BoxClient::legacyCommand($box, $command);
@@ -77,7 +77,7 @@ try {
             if ($command !== 'cec-refresh' && ($reply['accepted'] ?? false) !== true) throw new RuntimeException('La box n’a pas confirmé la demande de redémarrage. Vérifier son état.', 502);
             $result = ['ok' => true, 'accepted' => ($reply['accepted'] ?? false) === true,
                 'boot_id' => $reply['boot_id'] ?? null,
-                'message' => $command === 'cec-refresh' ? (($reply['refresh_busy'] ?? false) ? 'Le bus CEC est occupé. Réessayer dans un instant.' : 'État CEC actualisé.') : ($command === 'restart-display' ? 'Redémarrage de l’affichage demandé.' : 'Redémarrage demandé. Le retour de la box sera vérifié.')];
+                'message' => $command === 'cec-refresh' ? (($reply['refresh_busy'] ?? false) ? 'La communication avec la TV est occupée. Réessayer dans un instant.' : 'État actualisé.') : ($command === 'restart-display' ? 'Redémarrage de l’affichage demandé.' : 'Redémarrage demandé. Le retour de la box sera vérifié.')];
         }
     } finally {
         try { SharedCache::invalidate([$box['id']], in_array($command, ['restart-box','restart-display'], true)); }

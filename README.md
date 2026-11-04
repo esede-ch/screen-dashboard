@@ -4,7 +4,7 @@ Un tableau de bord avec **authentification LDAP**, réservé aux membres du grou
 
 ## Déployer sur un serveur Docker
 
-Le projet fournit `compose.yaml`, un `Dockerfile` PHP 8.5/Apache, deux volumes persistants et un workflow GitHub Actions. Les dossiers sont `/home/esede-admin/Docker-volumes/screen/data` et `/home/esede-admin/Docker-volumes/screen/config`. **Docker Compose sans Swarm**, HTTP sur le port **8090** ; le HTTPS reste géré par ton reverse proxy.
+Le projet fournit `compose.yaml`, un `Dockerfile` PHP 8.5/Apache, deux volumes persistants et un workflow GitHub Actions. Les dossiers sont `/home/esede-admin/Docker-volumes/screen/data` et `/home/esede-admin/Docker-volumes/screen/config`. **Docker Compose sans Swarm**, sans port publié sur le serveur ; ton reverse proxy rejoint `http://screen-dashboard:8080` via le réseau `nginx` ou `www` et sert le HTTPS.
 
 Consulter le **[guide Docker et GitHub](DEPLOIEMENT.md)** pour la publication, la configuration, le lancement, l’import des box et les sauvegardes.
 
@@ -110,7 +110,9 @@ Clique sur une image pour l’agrandir. L’aperçu agrandi continue à se mettr
 - **Capture ancienne** ou **actualisation indisponible** distingue la dernière image reçue d’une image récente. En cas de coupure, l’ancienne capture est conservée lorsqu’elle existe.
 - **Clé refusée**, **Hors ligne** ou **API à vérifier** indique la cause à contrôler.
 
-La marque est affichée lorsqu’elle est détectée par la box.
+La marque et le nom annoncé par la TV sont affichés ensemble, sans répéter la marque lorsque le nom la contient déjà (par exemple `LG SIGNAGE`). Si la box transmet le code fabricant mais pas sa marque, le dashboard reconnaît notamment Philips (`PHL` et le code non standard `PHP`, confirmé pour les TV esede), Samsung (`SAM`) et LG (`GSM`, `LGE`). Un code inconnu ne sert pas à deviner une marque.
+
+Les fichiers JavaScript et CSS portent une version calculée à partir de leur contenu. Après un déploiement, une ouverture ou un rechargement normal de la page récupère automatiquement les fichiers modifiés, sans vider le cache du navigateur. Un onglet déjà ouvert conserve sa version jusqu’au rechargement.
 
 L’actualisation du tableau de bord ne recharge pas le site affiché par la box et ne change pas son mécanisme de récupération après une erreur.
 

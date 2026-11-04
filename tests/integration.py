@@ -4,6 +4,7 @@ import contextlib
 import concurrent.futures
 import copy
 import fcntl
+import hashlib
 import http.cookiejar
 import http.cookies
 import http.server
@@ -46,8 +47,13 @@ class MockBox(http.server.BaseHTTPRequestHandler):
             if path.startswith('/admin/'):
                 return self.reply(404, {'ok':False,'error':'not_found'})
             if path=='/' and action=='status':
-                return self.reply(200, {'ok':True,'hostname':'bad/name' if self.mode=='legacy-bad-device' else 'box-test',
-                    'time':'2026-11-02 12:00:10','config':type(self).config,'tv_status':'on','schedule_status':'on'})
+                data = {'ok':True,'hostname':'bad/name' if self.mode=='legacy-bad-device' else 'box-test',
+                    'time':'2026-11-02 12:00:10','config':type(self).config,'tv_status':'on','schedule_status':'on'}
+                if self.mode == 'legacy-identity':
+                    data['television'] = {'status':'detected','brand':'LG','name':'LG SIGNAGE','source':'edid'}
+                elif self.mode == 'legacy-invalid-identity':
+                    data['television'] = 'invalid'
+                return self.reply(200, data)
             if path=='/' and action=='config' and self.command=='POST':
                 type(self).config.update(json.loads(body))
                 return self.reply(200, {'ok':True,'config':type(self).config if self.mode!='legacy-missing-ack' else {}})
@@ -73,10 +79,17 @@ class MockBox(http.server.BaseHTTPRequestHandler):
         if self.mode == 'large': return self.reply(200, b'x' * 300000)
         if self.mode == 'missing-ack': return self.reply(200, {'ok': True})
         if action == 'state':
+            television = {
+                'tv-philips': {'brand':None, 'manufacturer_code':'PHP', 'name':'PHP FTV'},
+                'tv-samsung': {'brand':None, 'manufacturer_code':'SAM', 'name':'SM320MX3'},
+                'tv-unknown': {'brand':None, 'manufacturer_code':'ZZZ', 'name':'Unknown TV'},
+                'tv-explicit-brand': {'brand':'Existing brand', 'manufacturer_code':'SAM', 'name':'Display'},
+                'tv-invalid-code': {'brand':None, 'manufacturer_code':['SAM'], 'name':'Display'},
+            }.get(self.mode, {'brand':'Philips'})
             return self.reply(200, {'ok': True, 'hostname': 'box-test', 'boot_id': 'boot-test',
                 'private_key': KEY, 'runtime': {'php_version': '8.5.5'},
                 'cec': {'config': type(self).config, 'revision': type(self).revision, 'timezone': 'Europe/Zurich',
-                    'television': {'brand': 'Philips'}, 'tv_status': 'off', 'age_seconds': 2},
+                    'television': television, 'tv_status': 'off', 'age_seconds': 2},
                 'capture': {'available': True, 'age_seconds': 3, 'updated_at': '2026-11-02T12:00:00+01:00'}})
         if action == 'screenshot': return self.reply(200, b'\xff\xd8test-image\xff\xd9', 'image/jpeg')
         if action == 'cec-config':
@@ -422,6 +435,32 @@ class Integration(unittest.TestCase):
                 with self.client.open(self.url+route) as response: raw=response.read()
             except urllib.error.HTTPError as response: raw=response.read()
             self.assertNotIn(KEY.encode(), raw)
+    def test_pages_reference_content_versioned_assets(self):
+        for route, names in [('/', ['app.js', 'app.css', 'auth.css']), ('/login.php', ['login.css'])]:
+            with self.client.open(self.url + route) as response:
+                html = response.read().decode()
+                self.assertIn('no-store', response.headers.get('Cache-Control', ''))
+            for name in names:
+                match = re.search(r'(?:src|href)="(/' + re.escape(name) + r'\?v=([a-f0-9]{16}))"', html)
+                self.assertIsNotNone(match, name)
+                with self.client.open(self.url + match[1]) as response:
+                    contents = response.read()
+                    self.assertEqual(response.status, 200)
+                self.assertEqual(hashlib.sha256(contents).hexdigest()[:16], match[2])
+
+    def test_tv_brand_fallback_uses_manufacturer_without_overwriting_brand(self):
+        self.add()
+        cases = [('tv-philips','Philips','PHP FTV'), ('tv-samsung','Samsung','SM320MX3'),
+                 ('tv-unknown',None,'Unknown TV'), ('tv-explicit-brand','Existing brand','Display'),
+                 ('tv-invalid-code',None,'Display')]
+        for mode, brand, name in cases:
+            with self.subTest(mode=mode):
+                MockBox.mode=mode; self.expire_cache()
+                row=self.api('status')['boxes'][0]
+                self.assertTrue(row['online'])
+                self.assertEqual(row['state']['brand'], brand)
+                self.assertEqual(row['state']['tv_name'], name)
+
     def test_state_projection_and_image(self):
         box = self.add(); row = self.api('status')['boxes'][0]
         self.assertTrue(row['online']); self.assertEqual(row['state']['brand'], 'Philips')
@@ -448,6 +487,28 @@ class Integration(unittest.TestCase):
             image=response.read(); self.assertEqual(response.status,200); self.assertEqual(len(image),300004)
             self.assertTrue(image.startswith(b'\xff\xd8') and image.endswith(b'\xff\xd9'))
             self.assertNotIn(KEY.encode(),image)
+    def test_legacy_tv_identity_is_exposed_and_shared(self):
+        self.add(); MockBox.mode='legacy-identity'
+        row=self.api('status')['boxes'][0]
+        self.assertTrue(row['online'])
+        self.assertEqual(row['state']['brand'], 'LG')
+        self.assertEqual(row['state']['tv_name'], 'LG SIGNAGE')
+        self.assertEqual(row['state']['tv_status'], 'unknown')
+        calls=len(MockBox.received)
+        again=self.api('status')['boxes'][0]
+        self.assertEqual(again['state']['tv_name'], 'LG SIGNAGE')
+        self.assertEqual(len(MockBox.received), calls)
+
+    def test_legacy_missing_or_invalid_identity_remains_compatible(self):
+        self.add()
+        for mode in ('legacy', 'legacy-invalid-identity'):
+            with self.subTest(mode=mode):
+                MockBox.mode=mode; self.expire_cache()
+                row=self.api('status')['boxes'][0]
+                self.assertTrue(row['online'])
+                self.assertIsNone(row['state']['brand'])
+                self.assertIsNone(row['state']['tv_name'])
+
     def test_legacy_missing_capture_keeps_box_online(self):
         self.add(); MockBox.mode='legacy-missing-image'
         row=self.api('status')['boxes'][0]
