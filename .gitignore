@@ -10,6 +10,7 @@ __pycache__/
 !/config/.gitkeep
 /backups/
 /dist/
+/public/maquettes/
 /*.png
 *.zip
 *.tar.gz
