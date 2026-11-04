@@ -210,7 +210,7 @@
       if(button.dataset.action==='preview') button.disabled=!images.has(box.id);
     }
     const msg=messages.get(box.id), el=card.querySelector('.box-message');
-    el.textContent=msg?.text || (box.online===false ? box.error || 'Box indisponible.' : '');
+    el.textContent=msg?.text || (box.online===false && box.error_kind!=='offline' ? box.error || 'Box indisponible.' : '');
     el.className='box-message '+(msg?.tone || (box.online===false?'error':'')); el.hidden=!el.textContent;
     const preview=card.querySelector('.preview'); preview.setAttribute('aria-label',`Agrandir l’écran ${box.name}`);
     const placeholder=card.querySelector('.preview-placeholder');
