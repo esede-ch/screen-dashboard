@@ -6,7 +6,7 @@ Le dashboard fonctionne avec **Docker Engine et Docker Compose v2, sans Swarm**.
 
 L’archive `dashboard-ecrans-github.zip` contient un dossier `dashboard-ecrans` prêt à devenir la racine d’un dépôt. Il faut publier le contenu de ce dossier, afin que `compose.yaml`, `Dockerfile` et `.github/` soient à la racine du dépôt.
 
-Les données réelles, les clés API, les sessions, les captures de contrôle, `.env` et les fichiers privés de `config/` sont exclus de l’archive. Les maquettes sont fournies avec le code mais ne sont pas copiées dans l’image Docker. Les logos et la photo utilisés par la page de connexion sont inclus dans `public/assets/`.
+Les données réelles, les clés API, les sessions, les captures de contrôle, `.env` et les fichiers privés de `config/` sont exclus de l’archive. Les maquettes de `public/maquettes/` restent locales : elles sont exclues de Git, de l’archive et de l’image Docker. Les logos et la photo utilisés par la page de connexion sont inclus dans `public/assets/`.
 
 Créer un dépôt GitHub vide, puis, dans le dossier extrait :
 

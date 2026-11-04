@@ -9,3 +9,5 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface)
 .card-title{flex:1}.drag-handle{width:44px;height:44px;min-width:44px;padding:10px;border:0;background:transparent;color:var(--muted);cursor:grab;touch-action:none;user-select:none}.drag-handle svg{stroke-width:4}.drag-handle:active{cursor:grabbing}.drag-handle:disabled{cursor:default}.screen-card.drag-source{opacity:.55}.screen-card.drop-target{outline:3px dashed var(--focus);outline-offset:5px}.drag-preview{position:fixed;z-index:100;pointer-events:none;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:10px 16px;background:var(--ink);color:var(--surface);border-radius:6px;font-size:.875rem}.dragging,.dragging *{cursor:grabbing!important;user-select:none!important}
 
 @media(max-width:480px){.tv-status{font-size:1rem}.tv-brand{font-size:.9375rem}.mode-controls button{font-size:.8125rem}}
+
+.restart-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.restart-controls button{min-height:44px;padding:8px;font-size:.8125rem;line-height:1.4}

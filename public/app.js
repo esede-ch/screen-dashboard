@@ -183,7 +183,6 @@
       });
     }
     const active=busy.has(box.id), state=box.state, online=box.online===true;
-    const legacy=state?.api_generation==='legacy';
     card.classList.toggle('busy',active); card.setAttribute('aria-busy',String(active));
     card.querySelector('h2').textContent=box.name; card.querySelector('h2').title=box.name;
     card.querySelector('.drag-handle').setAttribute('aria-label',`Déplacer ${box.name}`);
@@ -206,9 +205,8 @@
     for(const button of card.querySelectorAll('[data-action]')) {
       if(button.dataset.action.startsWith('move-'))continue;
       const local=['edit','remove','preview'].includes(button.dataset.action);
-      const unsupported=legacy && button.dataset.action==='restart-display';
-      button.disabled=unsupported || active || (!local && (!online || pendingReboots.has(box.id)));
-      button.title=unsupported?'Cette API ne propose pas le redémarrage de l’affichage.':'';
+      button.disabled=active || (!local && (!online || pendingReboots.has(box.id)));
+      button.title=state?.api_generation==='legacy' && button.dataset.action==='restart-display'?'Cette ancienne API nécessite un redémarrage complet de la box, après confirmation.':'';
       if(button.dataset.action==='preview') button.disabled=!images.has(box.id);
     }
     const msg=messages.get(box.id), el=card.querySelector('.box-message');
@@ -330,11 +328,16 @@
     finally {settingsSaving=false;$('settings-mode').disabled=false;$('settings-submit').disabled=false;$('settings-submit').textContent='Enregistrer et appliquer';setModeFields();}
   });
   function openConfirmation(id,action) {
-    const box=boxes.get(id);if(!box)return;confirmation={id,action,revision:box.revision};
-    const remove=action==='remove', whole=action==='restart-box';
+    const box=boxes.get(id);if(!box)return;
+    const fallback=action==='restart-display' && box.state?.api_generation==='legacy';
+    const confirmedAction=fallback?'restart-box':action;
+    confirmation={id,action:confirmedAction,revision:box.revision};
+    const remove=action==='remove', whole=confirmedAction==='restart-box';
     $('confirm-title').textContent=remove?'Retirer cette box ?':whole?'Redémarrer la box ?':'Redémarrer l’affichage ?';
-    $('confirm-description').textContent=remove?`${box.name} sera retirée de ce tableau de bord et sa clé enregistrée sera supprimée ici. La box continuera à fonctionner.`:whole?`${box.name} sera momentanément inaccessible. Sa télévision et son affichage peuvent être interrompus pendant le redémarrage.`:`L’affichage de ${box.name} sera brièvement interrompu, puis relancé.`;
-    $('confirm-action').textContent=remove?'Retirer la box':'Redémarrer';notice('confirm-error');$('confirm-dialog').showModal();
+    $('confirm-description').textContent=fallback
+      ? `L’ancienne API de ${box.name} ne permet pas de relancer uniquement l’affichage. Toute la box sera redémarrée et sera momentanément inaccessible. L’affichage sera interrompu pendant le redémarrage.`
+      : remove?`${box.name} sera retirée de ce tableau de bord et sa clé enregistrée sera supprimée ici. La box continuera à fonctionner.`:whole?`${box.name} sera momentanément inaccessible. Sa télévision et son affichage peuvent être interrompus pendant le redémarrage.`:`L’affichage de ${box.name} sera brièvement interrompu, puis relancé.`;
+    $('confirm-action').textContent=remove?'Retirer la box':whole?'Redémarrer la box':'Redémarrer l’affichage';notice('confirm-error');$('confirm-dialog').showModal();
   }
   $('confirm-action').addEventListener('click',async()=>{
     if(confirmationSaving || !confirmation)return;confirmationSaving=true;$('confirm-action').disabled=true;

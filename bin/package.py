@@ -19,6 +19,8 @@ def sources():
         yield p
     for directory in DIRECTORIES:
         for p in sorted((ROOT / directory).rglob('*')):
+            if p.relative_to(ROOT).parts[:2] == ('public', 'maquettes'):
+                continue
             if not p.is_file() or p.is_symlink() or '__pycache__' in p.parts:
                 continue
             if p.name == '.DS_Store' or p.suffix in ['.log', '.pyc', '.zip']:

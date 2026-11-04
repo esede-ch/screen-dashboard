@@ -166,3 +166,7 @@ python3 tests/integration.py
 ```
 
 Ils vérifient notamment dix sessions concurrentes partageant une seule récupération d’état et d’image, l’expiration et l’invalidation du cache, l’absence de travail sans requête, l’enregistrement, les modifications concurrentes, la protection des clés, les erreurs réseau, les délais, les redirections refusées, les horaires et les confirmations de redémarrage.
+
+### Boutons de redémarrage
+
+Chaque carte propose « Redémarrer l’affichage » et « Redémarrer la box », avec confirmation. Sur une API moderne, le premier bouton relance uniquement l’affichage. Sur une ancienne API sans cette commande, il propose un redémarrage complet : un avertissement explicite est affiché et le bouton de confirmation indique « Redémarrer la box ». Annuler ne transmet aucune commande.
