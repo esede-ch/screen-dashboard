@@ -162,21 +162,20 @@
   }
   document.addEventListener('keydown',event=>{if(event.key==='Escape' && drag){event.preventDefault();finishDrag(false);}});
   window.addEventListener('blur',()=>finishDrag(false));
+  const captureLabels = {
+    loading: 'Vérification de l’image…',
+    ok: 'Image OK',
+    pending: 'Image à confirmer · première absence de la barre orange',
+    alarm: 'Alerte · barre orange absente sur deux captures',
+    unverified: 'Image non vérifiée · fraîcheur inconnue ou capture ancienne',
+    unavailable: 'Capture indisponible'
+  };
   function showCaptureStatus(card, box, status) {
     card.dataset.captureStatus = status;
-    const hasImage = images.has(box.id);
-    const placeholder = card.querySelector('.preview-placeholder');
-    const unavailable = status === 'unavailable';
-    placeholder.hidden = hasImage;
-    placeholder.textContent = unavailable ? 'Capture indisponible' : 'Chargement de la capture…';
+    card.querySelector('.preview-placeholder').hidden = images.has(box.id) || status === 'unavailable';
     const notice = card.querySelector('.capture-notice');
-    let text = '';
-    if (status === 'alarm') text = 'Alerte : barre orange absente sur deux captures successives.';
-    if (status === 'unverified') text = 'Fraîcheur de la capture non confirmée.';
-    if (unavailable && hasImage) text = 'Capture indisponible';
+    const text = captureLabels[status] || captureLabels.unverified;
     if (notice.textContent !== text) notice.textContent = text;
-    notice.hidden = !text;
-    notice.dataset.alarm = String(status === 'alarm');
   }
   function render(box) {
     let card=cards.get(box.id);

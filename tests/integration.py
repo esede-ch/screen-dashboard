@@ -655,27 +655,27 @@ class Integration(unittest.TestCase):
             with self.client.open(req) as response:
                 return response.headers['X-Orange-Bar']
         MockBox.jpeg = self.short_image
-        self.assertEqual(observe(0), 'ok')
-        self.assertEqual(observe(0), 'ok')  # same file, even after cache expiry
-        self.assertEqual(observe(2), 'ok')  # metadata overlaps the first JPEG download
+        self.assertEqual(observe(0), 'pending')
+        self.assertEqual(observe(0), 'pending')  # same file, even after cache expiry
+        self.assertEqual(observe(2), 'pending')  # metadata overlaps the first JPEG download
         self.assertEqual(observe(10), 'alarm')
         MockBox.jpeg = self.orange_image
         self.assertEqual(observe(20), 'ok')
         MockBox.jpeg = self.short_image
-        self.assertEqual(observe(25), 'ok')
+        self.assertEqual(observe(22), 'pending')  # same metadata window as the last good JPEG
         self.assertEqual(observe(30, 91), 'unverified')
-        self.assertEqual(observe(35), 'ok')
+        self.assertEqual(observe(35), 'pending')
         MockBox.capture['available'] = False
         self.expire_cache()
         self.assertFalse(self.api('status')['boxes'][0]['state']['capture']['available'])
         MockBox.capture['available'] = True
-        self.assertEqual(observe(40), 'ok')
+        self.assertEqual(observe(40), 'pending')
         MockBox.jpeg = b'\xff\xd8broken\xff\xd9'
         self.expire_cache()
         self.api('status')
         self.image(box, expected=502)
         MockBox.jpeg = self.short_image
-        self.assertEqual(observe(50), 'ok')
+        self.assertEqual(observe(50), 'pending')
         self.assertEqual(observe(55), 'alarm')
 
     def test_ten_clients_share_state_and_image_even_on_simultaneous_cache_miss(self):

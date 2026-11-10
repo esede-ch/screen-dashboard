@@ -94,7 +94,15 @@ final class SharedCache {
             }
             $jpeg = isset($entry['value']['jpeg']) ? base64_decode($entry['value']['jpeg'], true) : false;
             if ($jpeg === false) throw new RuntimeException('Capture indisponible.', 502);
-            return ['jpeg' => $jpeg, 'bar' => $entry['value']['bar']['status']];
+            $bar = $entry['value']['bar'];
+            $status = $bar['status'];
+            if (isset($bar['stamp'], $bar['read_through']) &&
+                $bar['read_through'] - $bar['stamp'] + time() - $entry['fetched_at'] > OrangeBar::FRESH_SECONDS) {
+                $status = 'unverified';
+            } elseif ($status === 'ok' && $bar['misses'] === 1) {
+                $status = 'pending';
+            }
+            return ['jpeg' => $jpeg, 'bar' => $status];
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
     private static function forgetImage(string $id): void {

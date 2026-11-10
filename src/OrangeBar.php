@@ -52,7 +52,7 @@ final class OrangeBar {
         $last = $previous['stamp'] ?? null;
         // State and JPEG are separate requests. If their time windows overlap,
         // the second download may still be the file seen on the previous read.
-        if (!$present && $last !== null && $stamp >= $last && $stamp <= $previous['read_through']) {
+        if (!$present && ($previous['misses'] ?? 0) > 0 && $stamp >= $last && $stamp <= $previous['read_through']) {
             return $previous;
         }
         $misses = 0;

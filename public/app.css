@@ -13,11 +13,21 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface)
 .restart-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.restart-controls button{min-height:44px;padding:8px;font-size:.8125rem;line-height:1.4}
 
 .capture-notice {
-  margin: 12px 20px 0;
-  padding: 8px 12px;
-  border-left: 3px solid currentColor;
-  color: var(--warning);
-  background: var(--soft);
+  display: flex;
+  align-items: baseline;
+  gap: .5rem;
+  margin: .75rem 1.25rem 0;
+  color: var(--muted);
   font-size: .875rem;
+  font-weight: 600;
 }
-.capture-notice[data-alarm="true"] { color: var(--danger); font-weight: 600; }
+.capture-notice::before {
+  content: "";
+  flex: 0 0 .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+[data-capture-status="ok"] .capture-notice { color: var(--success); }
+[data-capture-status="pending"] .capture-notice { color: var(--warning); }
+[data-capture-status="alarm"] .capture-notice { color: var(--danger); }
