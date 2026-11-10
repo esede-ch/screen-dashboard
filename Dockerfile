@@ -1,7 +1,7 @@
 FROM php:8.5-apache-trixie AS production
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libldap-dev libjpeg62-turbo-dev libpng-dev \
+    && apt-get install -y --no-install-recommends supervisor libldap-dev libjpeg62-turbo-dev libpng-dev \
     && docker-php-ext-configure ldap --with-libdir="lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
     && docker-php-ext-configure gd --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" ldap gd \
@@ -15,6 +15,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 COPY docker/php.ini /usr/local/etc/php/conf.d/dashboard.ini
+COPY docker/supervisord.conf /etc/supervisor/dashboard.conf
 COPY docker/entrypoint.sh /usr/local/bin/dashboard-entrypoint
 COPY docker/healthcheck.php docker/check-config.php ./docker/
 
@@ -33,6 +34,7 @@ ENV DASHBOARD_DATA_DIR=/var/lib/dashboard \
 USER www-data
 EXPOSE 8080
 ENTRYPOINT ["dashboard-entrypoint"]
+STOPSIGNAL SIGTERM
 CMD ["apache2-foreground"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
     CMD ["php", "/var/www/dashboard/docker/healthcheck.php"]

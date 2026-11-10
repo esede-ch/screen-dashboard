@@ -211,7 +211,9 @@ docker compose exec dashboard php -r 'require "src/bootstrap.php"; (new LdapDire
 - **Box hors ligne** : le réseau du conteneur doit atteindre les IP/DNS des box, pas seulement le navigateur.
 - **Dossiers absents ou droits du volume** : créer les deux dossiers avec les commandes de la section 2. `data` doit appartenir à `33:33` ; `config` doit être traversable et ses fichiers lisibles par le groupe 33. Le conteneur ne tourne pas en root et ne peut pas réparer un dossier hôte appartenant à root.
 
-Le contrôle de santé vérifie la page de connexion et PHP, sans interroger les TV ni le LDAP. L’indisponibilité d’une TV ne redémarre pas le conteneur. Le service Compose `capture-monitor` surveille les images en continu. Pour vérifier son état, utiliser `docker compose ps capture-monitor`. Son dernier bilan se trouve dans `/home/esede-admin/Docker-volumes/screen/data/capture-monitor.json`.
+Le conteneur `screen-dashboard` exécute Apache et la surveillance des captures sous Supervisor. Son contrôle de santé vérifie la page de connexion et l’activité du processus de surveillance. Pour contrôler le service, utiliser `docker compose ps dashboard`. Son dernier bilan se trouve dans `/home/esede-admin/Docker-volumes/screen/data/capture-monitor.json`.
+
+Pour migrer depuis la version à deux conteneurs, construire l’image avec `docker compose build dashboard`, arrêter l’ancien conteneur de surveillance, puis lancer `docker compose up -d --wait dashboard`. Après vérification du nouveau bilan, retirer l’ancien conteneur de surveillance arrêté. Les volumes de la stack sont réutilisés.
 
 ## 8. Vérifications et GitHub Actions
 

@@ -8,12 +8,6 @@ umask(0077);
 $dir = dashboard_dir();
 $report = $dir . '/capture-monitor.json';
 $lockFile = $dir . '/capture-monitor.lock';
-if (($argv[1] ?? null) === '--health') {
-    // Each completed box advances the heartbeat even if its capture is unavailable.
-    $heartbeat = @filemtime($lockFile);
-    exit($heartbeat !== false && time() - $heartbeat < 90 ? 0 : 1);
-}
-
 $lock = fopen($lockFile, 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) {
     fwrite(STDERR, "La surveillance des captures est déjà active ou indisponible.\n");

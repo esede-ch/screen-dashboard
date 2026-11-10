@@ -2,6 +2,8 @@
 declare(strict_types=1);
 require dirname(__DIR__) . '/src/WebContext.php';
 try {
+    $heartbeat = @filemtime(getenv('DASHBOARD_DATA_DIR') . '/capture-monitor.lock');
+    if ($heartbeat === false || time() - $heartbeat >= 90) exit(1);
     $origin = WebContext::publicOrigin();
     if ($origin === null) exit(1);
     $c = curl_init('http://127.0.0.1:8080/login.php');

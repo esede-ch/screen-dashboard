@@ -66,4 +66,30 @@ docker compose exec -T dashboard php -r '
 $path="/var/lib/dashboard/ci-persistence";
 if (file_get_contents($path) !== "ok") { fwrite(STDERR,"ERREUR données perdues après recréation\n"); exit(1); }
 unlink($path); echo "OK persistance après recréation\n";'
+
+# The monitoring process belongs to the web container and recovers independently.
+docker compose exec -T dashboard php <<'PHP'
+<?php
+function monitorPid(): ?int {
+    foreach (glob('/proc/[0-9]*/cmdline') as $file) {
+        $args = explode("\0", (string)@file_get_contents($file));
+        if (basename($args[0]) === 'php' && ($args[1] ?? '') === '/var/www/dashboard/src/capture-monitor.php') {
+            return (int)basename(dirname($file));
+        }
+    }
+    return null;
+}
+$old = monitorPid();
+if (!$old || !posix_kill($old, 15)) exit(1);
+for ($i = 0; $i < 60; ++$i) {
+    usleep(250000);
+    $new = monitorPid();
+    if ($new && $new !== $old && is_file('/var/lib/dashboard/capture-monitor.json')) {
+        echo "OK surveillance relancée dans le conteneur web\n";
+        exit(0);
+    }
+}
+exit(1);
+PHP
+check_http 200 /login.php localhost:8090
 printf 'Tous les contrôles Docker ont réussi.\n'
