@@ -167,7 +167,7 @@
   const captureLabels = {
     loading: 'Vérification de l’image…',
     ok: 'Image OK',
-    alarm: 'Alerte · barre orange absente',
+    alarm: 'Alerte',
     stale: 'Alerte · capture de plus de 60 secondes',
     stale_missing: 'Alerte · capture de plus de 60 secondes et barre orange absente',
     unverified: 'Image non vérifiée · âge inconnu',
