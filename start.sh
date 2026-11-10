@@ -8,4 +8,8 @@ mkdir -p data
 chmod 700 data
 export PHP_CLI_SERVER_WORKERS=4
 printf 'Tableau de bord : http://127.0.0.1:8090\nArrêt : Ctrl+C\n'
-exec "$PHP_BIN" -d display_errors=0 -d log_errors=1 -d error_reporting=E_ALL -S 127.0.0.1:8090 -t public
+"$PHP_BIN" src/capture-monitor.php &
+monitor_pid=$!
+trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+trap 'exit 0' HUP INT TERM
+"$PHP_BIN" -d display_errors=0 -d log_errors=1 -d error_reporting=E_ALL -S 127.0.0.1:8090 -t public

@@ -95,13 +95,13 @@ Une box ajoutée est placée à la fin de la liste.
 
 ## Voir les écrans
 
-Le serveur interroge automatiquement l’état CEC de chaque TV **toutes les 60 secondes**, via les anciennes et nouvelles API. La page ouverte déclenche cette vérification. Les vérifications CEC et les captures s’arrêtent à la fermeture de la page, lorsque l’onglet est masqué ou lorsque l’actualisation est désactivée. Une interrogation déjà envoyée à une box peut se terminer, mais aucun nouveau cycle n’est lancé sans page active. Si plusieurs pages sont ouvertes, la vérification continue depuis les pages actives ; le serveur évite les doublons pendant une même minute. Elle ne change ni le mode de la TV ni les horaires. Les box sont interrogées en parallèle ; une commande déjà en cours reporte la lecture CEC jusqu’à la libération de la box. Une erreur est retentée au cycle suivant, sans présenter l’ancien état comme une nouvelle réponse.
+Le serveur interroge automatiquement l’état CEC de chaque TV **toutes les 60 secondes**, via les anciennes et nouvelles API. La page ouverte déclenche cette vérification. Les vérifications CEC s’arrêtent à la fermeture de la page, lorsque l’onglet est masqué ou lorsque l’actualisation est désactivée. Une interrogation déjà envoyée à une box peut se terminer, mais aucun nouveau cycle CEC n’est lancé sans page active. Si plusieurs pages sont ouvertes, la vérification continue depuis les pages actives ; le serveur évite les doublons pendant une même minute. Elle ne change ni le mode de la TV ni les horaires. Les box sont interrogées en parallèle ; une commande déjà en cours reporte la lecture CEC jusqu’à la libération de la box. Une erreur est retentée au cycle suivant, sans présenter l’ancien état comme une nouvelle réponse.
 
 La page vérifie les états et charge les captures automatiquement, avec une pause de **15 secondes entre deux cycles**. Tu peux suspendre cette actualisation ou utiliser le bouton d’actualisation manuelle. Les vérifications reprennent lorsque la page redevient visible, si l’actualisation est activée.
 
 Les états et images utilisent un **cache partagé de 15 secondes** sur le serveur. Dix navigateurs peuvent consulter la même capture sans provoquer dix téléchargements sur la box. Lors d’une expiration, un verrou autorise une seule récupération ; les autres demandes réutilisent son résultat. Les erreurs sont également conservées pendant 15 secondes pour éviter de solliciter une box indisponible en boucle. Le bouton d’actualisation visuelle utilise ce même cache.
 
-Après une commande ou une lecture CEC, l’état concerné est invalidé pour refléter le résultat immédiatement. Un changement d’adresse ou de clé empêche la réutilisation du cache précédent. L’ancienneté des captures et réponses CEC continue d’augmenter pendant leur mise en cache. L’expiration seule ne déclenche aucun appel : **lorsque toutes les pages sont fermées ou en pause, aucun nouveau cycle ne démarre**.
+Après une commande ou une lecture CEC, l’état concerné est invalidé pour refléter le résultat immédiatement. Un changement d’adresse ou de clé empêche la réutilisation du cache précédent. L’ancienneté des captures et réponses CEC continue d’augmenter pendant leur mise en cache. Le service de surveillance continue de vérifier les captures lorsque toutes les pages sont fermées ou en pause.
 
 Clique sur une image pour l’agrandir. L’aperçu agrandi continue à se mettre à jour. Il s’agit de captures périodiques, pas d’un flux vidéo.
 
@@ -157,7 +157,7 @@ La version récente de l’API (`/admin/?action=state`) permet les captures, les
 
 ## Vérifications de développement
 
-Le lanceur `start.sh` démarre uniquement le serveur web. Aucun processus autonome de vérification ne tourne en arrière-plan. Le suivi des requêtes CEC de la page est conservé dans `data/cec-auto-*.json` pour éviter les doublons entre navigateurs. Aucun réglage sur les box n’est nécessaire.
+Sur le Mac, le lanceur `start.sh` démarre le serveur web et le processus de surveillance des captures. Le suivi des requêtes CEC de la page est conservé dans `data/cec-auto-*.json` pour éviter les doublons entre navigateurs. Aucun réglage sur les box n’est nécessaire.
 
 Le dossier `tests` contient des tests isolés avec des box simulées. Ils ne lisent pas la liste réelle et ne commandent aucune vraie TV :
 
@@ -174,3 +174,5 @@ Chaque carte propose « Redémarrer l’affichage » et « Redémarrer la box »
 ### Surveillance de la barre orange
 
 Chaque carte affiche « Image OK » quand la capture a au plus 60 secondes et contient la barre orange horizontale des horaires. Une seule image sans barre déclenche une alerte. Une capture de 61 secondes ou plus déclenche aussi une alerte, même avec la barre. Les deux motifs sont affichés ensemble lorsqu’ils s’appliquent. Si l’âge est inconnu, la barre reste vérifiée. Sans image lisible, la carte indique « Capture indisponible ».
+
+Le service Docker `capture-monitor` vérifie les box enregistrées, même sans navigateur, avec une pause de 15 secondes après chaque tournée. Le serveur conserve le dernier bilan dans `data/capture-monitor.json` (identifiant, date Unix et résultat par écran). Le résultat vaut `ok`, `alarm` (barre absente), `stale`, `stale_missing`, `unverified` ou `unavailable`.

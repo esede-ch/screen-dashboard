@@ -644,6 +644,29 @@ class Integration(unittest.TestCase):
         self.api('list',expected=500); self.api('save',dict(name='Test',address=self.address,key=KEY),expected=500)
         self.assertEqual(path.read_text(),'{broken')
 
+    def test_capture_monitor_without_dashboard_requests(self):
+        box = self.add()
+        env = dict(os.environ, DASHBOARD_DATA_DIR=str(self.data))
+        def run_monitor():
+            subprocess.run(['php', str(ROOT/'src/capture-monitor.php'), '--once'], env=env,
+                           check=True, timeout=12)
+            return json.loads((self.data/'capture-monitor.json').read_text())['screens']
+        MockBox.jpeg = self.short_image
+        rows = run_monitor()
+        self.assertEqual([(row['id'], row['status']) for row in rows], [(box['id'], 'alarm')])
+        self.assertNotIn(KEY, (self.data/'capture-monitor.json').read_text())
+        self.assertEqual(run_monitor()[0]['status'], 'alarm')
+        self.assertEqual([r[0] for r in MockBox.received], ['state','screenshot'])
+        self.expire_cache()
+        MockBox.jpeg = self.orange_image
+        MockBox.capture['age_seconds'] = 65
+        self.assertEqual(run_monitor()[0]['status'], 'stale')
+        self.expire_cache()
+        MockBox.capture['available'] = False
+        self.assertEqual(run_monitor()[0]['status'], 'unavailable')
+        (self.data/'boxes.json').write_text('[]')
+        self.assertEqual(run_monitor(), [])
+
     def test_image_alerts_on_age_or_first_missing_bar(self):
         box = self.add()
         def image_status():

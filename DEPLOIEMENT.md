@@ -211,7 +211,7 @@ docker compose exec dashboard php -r 'require "src/bootstrap.php"; (new LdapDire
 - **Box hors ligne** : le réseau du conteneur doit atteindre les IP/DNS des box, pas seulement le navigateur.
 - **Dossiers absents ou droits du volume** : créer les deux dossiers avec les commandes de la section 2. `data` doit appartenir à `33:33` ; `config` doit être traversable et ses fichiers lisibles par le groupe 33. Le conteneur ne tourne pas en root et ne peut pas réparer un dossier hôte appartenant à root.
 
-Le contrôle de santé vérifie la page de connexion et PHP, sans interroger les TV ni le LDAP. L’indisponibilité d’une TV ne redémarre pas le conteneur. Comme avant, les contrôles des box sont déclenchés uniquement par les pages actives.
+Le contrôle de santé vérifie la page de connexion et PHP, sans interroger les TV ni le LDAP. L’indisponibilité d’une TV ne redémarre pas le conteneur. Le service Compose `capture-monitor` surveille les images en continu. Pour vérifier son état, utiliser `docker compose ps capture-monitor`. Son dernier bilan se trouve dans `/home/esede-admin/Docker-volumes/screen/data/capture-monitor.json`.
 
 ## 8. Vérifications et GitHub Actions
 

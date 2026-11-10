@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/OrangeBar.php';
 
-/** Request-driven cache: expiration never starts work without an open page. */
+/** Shared by dashboard requests and the background capture monitor. */
 final class SharedCache {
     private const TTL = 15;
     private static function identity(array $box): string {
