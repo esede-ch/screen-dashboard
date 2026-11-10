@@ -12,7 +12,9 @@ try {
     if ($method === 'GET' && $action === 'status') json_response(['boxes' => SharedCache::states($store->all()), 'checked_at' => time()]);
     if ($method === 'GET' && $action === 'image') {
         $box = $store->find((string)($_GET['id'] ?? ''));
-        $jpeg = SharedCache::image($box);
+        $image = SharedCache::image($box);
+        $jpeg = $image['jpeg'];
+        header('X-Orange-Bar: ' . $image['bar']);
         header('Content-Type: image/jpeg'); header('Content-Length: ' . strlen($jpeg));
         echo $jpeg; exit;
     }

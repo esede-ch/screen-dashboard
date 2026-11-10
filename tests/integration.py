@@ -25,6 +25,16 @@ import urllib.request
 from ldap_fixture import LdapFixture
 
 ROOT = Path(__file__).resolve().parents[1]
+
+def timetable_jpeg(bar_width):
+    script = """
+        $im = imagecreatetruecolor(800, 450);
+        imagefill($im, 0, 0, 0xffffff);
+        imagefilledrectangle($im, 24, 45, 24 + (int)$argv[1], 67, 0xe34724);
+        imagejpeg($im);
+    """
+    return subprocess.check_output(['php', '-r', script, str(bar_width)])
+
 KEY = 'T' * 64
 CONFIG = dict(MODE='auto', ON_TIME='0600', OFF_TIME='1700', WEEKEND_ENABLED='no', HDMI_LOCK_ENABLED='yes')
 
@@ -69,7 +79,7 @@ class MockBox(http.server.BaseHTTPRequestHandler):
                 if self.mode=='legacy-missing-image': return self.reply(404,{'error':'Image introuvable'})
                 return self.reply(200, {'device_id':'box-test','timestamp':'2026-11-02 12:00:00',
                     'image_url':f'http://127.0.0.1:{self.server.server_port}/unexpected?token='+KEY})
-            if path=='/screenshot.php': return self.reply(200,b'\xff\xd8'+b'x'*300000+b'\xff\xd9','image/jpeg')
+            if path=='/screenshot.php': return self.reply(200,MockBox.legacy_jpeg,'image/jpeg')
             return self.reply(404,{'ok':False})
         if self.mode == 'slow': time.sleep(5)
         if self.mode == 'cache-delay': time.sleep(.2)
@@ -90,8 +100,8 @@ class MockBox(http.server.BaseHTTPRequestHandler):
                 'private_key': KEY, 'runtime': {'php_version': '8.5.5'},
                 'cec': {'config': type(self).config, 'revision': type(self).revision, 'timezone': 'Europe/Zurich',
                     'television': television, 'tv_status': 'off', 'age_seconds': 2},
-                'capture': {'available': True, 'age_seconds': 3, 'updated_at': '2026-11-02T12:00:00+01:00'}})
-        if action == 'screenshot': return self.reply(200, b'\xff\xd8test-image\xff\xd9', 'image/jpeg')
+                'capture': MockBox.capture})
+        if action == 'screenshot': return self.reply(200, MockBox.jpeg, 'image/jpeg')
         if action == 'cec-config':
             data = json.loads(body)
             if data.get('revision') != type(self).revision: return self.reply(409, {'ok': False})
@@ -109,6 +119,11 @@ class MockBox(http.server.BaseHTTPRequestHandler):
 class Integration(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        cls.orange_image = timetable_jpeg(751)
+        cls.short_image = timetable_jpeg(250)
+        # Keep the large legacy response test, using valid JPEG comment segments.
+        comment = b'\xff\xfe\xea\x62' + b'x' * 60000
+        MockBox.legacy_jpeg = cls.orange_image[:2] + comment * 5 + cls.orange_image[2:]
         cls.temp = tempfile.TemporaryDirectory(prefix='dashboard-tests-')
         cls.data = Path(cls.temp.name) / 'data'
         cls.ldap = LdapFixture(cls.temp.name, cls.data)
@@ -154,6 +169,8 @@ class Integration(unittest.TestCase):
     def setUp(self):
         self.ldap.membership(True)
         (self.data/'login-attempts.json').unlink(missing_ok=True)
+        MockBox.jpeg = self.orange_image
+        MockBox.capture = dict(available=True, age_seconds=3, updated_at='2026-11-02T12:00:00+01:00')
         MockBox.mode = 'normal'; MockBox.received = []; MockBox.config = CONFIG.copy(); MockBox.revision = 'r1'
         if (self.data/'boxes.json').exists(): (self.data/'boxes.json').unlink()
         for path in self.data.glob('cec-*.json'): path.unlink()
@@ -467,7 +484,7 @@ class Integration(unittest.TestCase):
         self.assertEqual(row['state']['config'], CONFIG)
         req = urllib.request.Request(self.url+'/api.php?action=image&id='+box['id'], headers={'X-Dashboard-Token':self.token})
         with self.client.open(req) as response:
-            self.assertEqual(response.headers['Content-Type'],'image/jpeg'); self.assertEqual(response.read(),b'\xff\xd8test-image\xff\xd9')
+            self.assertEqual(response.headers['Content-Type'],'image/jpeg'); self.assertEqual(response.read(),MockBox.jpeg)
         self.assertTrue(all(r[2]=='Bearer '+KEY for r in MockBox.received))
     def test_bad_key_and_offline(self):
         self.add(key='X'*64)
@@ -484,7 +501,7 @@ class Integration(unittest.TestCase):
         self.assertNotIn('image_url',json.dumps(row))
         req=urllib.request.Request(self.url+'/api.php?action=image&id='+box['id'],headers={'X-Dashboard-Token':self.token})
         with self.client.open(req) as response:
-            image=response.read(); self.assertEqual(response.status,200); self.assertEqual(len(image),300004)
+            image=response.read(); self.assertEqual(response.status,200); self.assertGreater(len(image),300000)
             self.assertTrue(image.startswith(b'\xff\xd8') and image.endswith(b'\xff\xd9'))
             self.assertNotIn(KEY.encode(),image)
     def test_legacy_tv_identity_is_exposed_and_shared(self):
@@ -627,6 +644,40 @@ class Integration(unittest.TestCase):
         self.api('list',expected=500); self.api('save',dict(name='Test',address=self.address,key=KEY),expected=500)
         self.assertEqual(path.read_text(),'{broken')
 
+    def test_orange_bar_requires_two_distinct_fresh_captures(self):
+        box = self.add()
+        def observe(second, age=3):
+            self.expire_cache()
+            MockBox.capture.update(updated_at=f'2026-11-02T12:00:{second:02d}+01:00', age_seconds=age)
+            self.api('status')
+            req = urllib.request.Request(self.url + '/api.php?action=image&id=' + box['id'],
+                                         headers={'X-Dashboard-Token': self.token})
+            with self.client.open(req) as response:
+                return response.headers['X-Orange-Bar']
+        MockBox.jpeg = self.short_image
+        self.assertEqual(observe(0), 'ok')
+        self.assertEqual(observe(0), 'ok')  # same file, even after cache expiry
+        self.assertEqual(observe(2), 'ok')  # metadata overlaps the first JPEG download
+        self.assertEqual(observe(10), 'alarm')
+        MockBox.jpeg = self.orange_image
+        self.assertEqual(observe(20), 'ok')
+        MockBox.jpeg = self.short_image
+        self.assertEqual(observe(25), 'ok')
+        self.assertEqual(observe(30, 91), 'unverified')
+        self.assertEqual(observe(35), 'ok')
+        MockBox.capture['available'] = False
+        self.expire_cache()
+        self.assertFalse(self.api('status')['boxes'][0]['state']['capture']['available'])
+        MockBox.capture['available'] = True
+        self.assertEqual(observe(40), 'ok')
+        MockBox.jpeg = b'\xff\xd8broken\xff\xd9'
+        self.expire_cache()
+        self.api('status')
+        self.image(box, expected=502)
+        MockBox.jpeg = self.short_image
+        self.assertEqual(observe(50), 'ok')
+        self.assertEqual(observe(55), 'alarm')
+
     def test_ten_clients_share_state_and_image_even_on_simultaneous_cache_miss(self):
         box=self.add(); MockBox.mode='cache-delay'
         clients=[]
@@ -642,7 +693,7 @@ class Integration(unittest.TestCase):
             rows=list(pool.map(lambda c:get(c,'status'),clients))
             self.assertTrue(all(json.loads(row)['boxes'][0]['online'] for row in rows))
             images=list(pool.map(lambda c:get(c,'image&id='+box['id']),clients))
-            self.assertTrue(all(image==b'\xff\xd8test-image\xff\xd9' for image in images))
+            self.assertTrue(all(image==MockBox.jpeg for image in images))
         self.assertEqual([r[0] for r in MockBox.received],['state','screenshot'])
         for path in self.data.glob('shared-*.json'):
             self.assertEqual(path.stat().st_mode & 0o777,0o600)

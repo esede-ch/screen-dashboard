@@ -22,7 +22,7 @@ Les instructions ci-dessous décrivent les fonctions communes et les essais loca
 
 ## Démarrer sur ton Mac
 
-1. Double-clique sur **`Lancer-le-dashboard.command`** dans ce dossier. PHP 8.5 et les extensions cURL et LDAP sont déjà présents sur ton ordinateur.
+1. Double-clique sur **`Lancer-le-dashboard.command`** dans ce dossier. Le lancement nécessite PHP 8.5 avec cURL, LDAP et GD (JPEG).
 2. Garde la fenêtre du Terminal ouverte.
 3. Ouvre **[http://127.0.0.1:8090](http://127.0.0.1:8090)** dans ton navigateur et connecte-toi avec ton identifiant LDAP et ton mot de passe habituel. Le compte doit être membre direct du groupe `screen`.
 
@@ -170,3 +170,7 @@ Ils vérifient notamment dix sessions concurrentes partageant une seule récupé
 ### Boutons de redémarrage
 
 Chaque carte propose « Redémarrer l’affichage » et « Redémarrer la box », avec confirmation. Sur une API moderne, le premier bouton relance uniquement l’affichage. Sur une ancienne API sans cette commande, il propose un redémarrage complet : un avertissement explicite est affiché et le bouton de confirmation indique « Redémarrer la box ». Annuler ne transmet aucune commande.
+
+### Surveillance de la barre orange
+
+Le dashboard analyse les captures pendant son actualisation. Une alerte apparaît après deux images fraîches successives sans le bandeau orange du tableau des horaires et disparaît dès son retour. La détection cherche la barre dans les 30 % supérieurs de l’image, sur au moins 80 % de la largeur du tableau. Le compteur est partagé entre les visiteurs. Une image déjà comptée, sans date vérifiable ou âgée de plus de 90 secondes ne déclenche pas d’alerte. Une capture manquante ou illisible affiche « Capture indisponible » et interrompt la série. L’analyse utilise PHP GD avec le support JPEG, inclus dans le Dockerfile.

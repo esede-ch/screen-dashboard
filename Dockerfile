@@ -1,10 +1,11 @@
 FROM php:8.5-apache-trixie AS production
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libldap-dev \
+    && apt-get install -y --no-install-recommends libldap-dev libjpeg62-turbo-dev libpng-dev \
     && docker-php-ext-configure ldap --with-libdir="lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)" \
-    && docker-php-ext-install -j"$(nproc)" ldap \
-    && apt-get purge -y libldap-dev \
+    && docker-php-ext-configure gd --with-jpeg \
+    && docker-php-ext-install -j"$(nproc)" ldap gd \
+    && apt-get purge -y libldap-dev libjpeg62-turbo-dev libpng-dev \
     && rm -rf /var/lib/apt/lists/* \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && printf 'Listen 8080\n' > /etc/apache2/ports.conf
@@ -21,7 +22,7 @@ RUN mkdir -p /var/lib/dashboard/sessions /config \
     && chown -R www-data:www-data /var/lib/dashboard \
     && chmod 700 /var/lib/dashboard /var/lib/dashboard/sessions \
     && chmod 755 /usr/local/bin/dashboard-entrypoint \
-    && php -r 'foreach (["curl","ldap","mbstring","openssl"] as $ext) { if (!extension_loaded($ext)) { fwrite(STDERR,"Extension manquante: $ext\n"); exit(1); } }' \
+    && php -r 'foreach (["curl","gd","ldap","mbstring","openssl"] as $ext) { if (!extension_loaded($ext)) { fwrite(STDERR,"Extension manquante: $ext\n"); exit(1); } }' \
     && apache2ctl configtest
 
 ENV DASHBOARD_DATA_DIR=/var/lib/dashboard \

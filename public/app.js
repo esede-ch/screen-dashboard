@@ -22,7 +22,9 @@
         method, headers:{'X-Dashboard-Token':csrf, ...(body ? {'Content-Type':'application/json'} : {})},
         body:body ? JSON.stringify(body) : undefined, cache:'no-store', signal:controller.signal
       });
-      if (action === 'image' && response.ok) return await response.blob();
+      if (action === 'image' && response.ok) {
+        return {blob: await response.blob(), bar: response.headers.get('X-Orange-Bar')};
+      }
       const data = await response.json().catch(() => ({}));
       if (response.status === 401 && data.code === 'auth_required') {
         pageActive=false;stopChecks();window.location.replace('/login.php');
@@ -160,6 +162,22 @@
   }
   document.addEventListener('keydown',event=>{if(event.key==='Escape' && drag){event.preventDefault();finishDrag(false);}});
   window.addEventListener('blur',()=>finishDrag(false));
+  function showCaptureStatus(card, box, status) {
+    card.dataset.captureStatus = status;
+    const hasImage = images.has(box.id);
+    const placeholder = card.querySelector('.preview-placeholder');
+    const unavailable = status === 'unavailable';
+    placeholder.hidden = hasImage;
+    placeholder.textContent = unavailable ? 'Capture indisponible' : 'Chargement de la capture…';
+    const notice = card.querySelector('.capture-notice');
+    let text = '';
+    if (status === 'alarm') text = 'Alerte : barre orange absente sur deux captures successives.';
+    if (status === 'unverified') text = 'Fraîcheur de la capture non confirmée.';
+    if (unavailable && hasImage) text = 'Capture indisponible';
+    if (notice.textContent !== text) notice.textContent = text;
+    notice.hidden = !text;
+    notice.dataset.alarm = String(status === 'alarm');
+  }
   function render(box) {
     let card=cards.get(box.id);
     if (!card) {
@@ -213,8 +231,8 @@
     el.textContent=msg?.text || (box.online===false && box.error_kind!=='offline' ? box.error || 'Box indisponible.' : '');
     el.className='box-message '+(msg?.tone || (box.online===false?'error':'')); el.hidden=!el.textContent;
     const preview=card.querySelector('.preview'); preview.setAttribute('aria-label',`Agrandir l’écran ${box.name}`);
-    const placeholder=card.querySelector('.preview-placeholder');
-    placeholder.textContent=box.online===false?'La capture sera disponible au retour de la box.':capture?.available===false?'Aucune capture disponible':'Chargement de la capture…';
+    const unavailable = box.online === false || capture?.available === false;
+    showCaptureStatus(card, box, unavailable ? 'unavailable' : card.dataset.captureStatus || 'loading');
   }
   async function loadImages() {
     const queue=[...boxes.values()].filter(box=>box.online && box.state?.capture.available && !busy.has(box.id) && !imageBusy.has(box.id));
@@ -223,7 +241,7 @@
         const box=queue.shift(); imageBusy.add(box.id);
         try {
           if(!pageActive || document.hidden)break;
-          const blob=await request('image',{id:box.id,timeout:15000,background:true});
+          const {blob, bar}=await request('image',{id:box.id,timeout:15000,background:true});
           if(!boxes.has(box.id) || boxes.get(box.id).revision!==box.revision)continue;
           const url=URL.createObjectURL(blob), check=new Image();check.src=url;
           try {await check.decode();} catch(error) {URL.revokeObjectURL(url);throw error;}
@@ -232,13 +250,14 @@
           images.set(box.id,url); const card=cards.get(box.id), img=card.querySelector('.preview img');
           card.querySelector('.preview').removeAttribute('title');
           img.src=url; img.hidden=false; card.querySelector('.preview-placeholder').hidden=true; card.querySelector('.preview').disabled=false;
+          showCaptureStatus(card, box, bar || 'unverified');
           if(previewId===box.id) $('large-preview').src=url;
           if(previous)URL.revokeObjectURL(previous);
         } catch(_) {
           const card=cards.get(box.id);
-          if(card) {
+          if(card && pageActive && !document.hidden && boxes.get(box.id)?.revision===box.revision) {
             card.querySelector('.preview').title=images.has(box.id)?'Dernière image disponible : actualisation indisponible.':'Image indisponible';
-            if(!images.has(box.id))card.querySelector('.preview-placeholder').textContent='Image indisponible';
+            showCaptureStatus(card, box, 'unavailable');
           }
         } finally { imageBusy.delete(box.id); }
       }

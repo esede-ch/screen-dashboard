@@ -11,3 +11,13 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface)
 @media(max-width:480px){.tv-status{font-size:1rem}.tv-brand{font-size:.9375rem}.mode-controls button{font-size:.8125rem}}
 
 .restart-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.restart-controls button{min-height:44px;padding:8px;font-size:.8125rem;line-height:1.4}
+
+.capture-notice {
+  margin: 12px 20px 0;
+  padding: 8px 12px;
+  border-left: 3px solid currentColor;
+  color: var(--warning);
+  background: var(--soft);
+  font-size: .875rem;
+}
+.capture-notice[data-alarm="true"] { color: var(--danger); font-weight: 600; }

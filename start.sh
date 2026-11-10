@@ -2,7 +2,7 @@
 set -eu
 cd "$(dirname "$0")"
 PHP_BIN=${PHP_BIN:-php}
-"$PHP_BIN" -r 'if (PHP_VERSION_ID < 80500 || !extension_loaded("curl") || !extension_loaded("ldap")) {fwrite(STDERR,"PHP 8.5 avec cURL et LDAP est nécessaire.\n");exit(1);}'
+"$PHP_BIN" -r 'if (PHP_VERSION_ID < 80500 || !extension_loaded("curl") || !extension_loaded("ldap") || !function_exists("imagecreatefromjpeg")) {fwrite(STDERR,"PHP 8.5 avec cURL, LDAP et GD avec JPEG est nécessaire.\n");exit(1);}'
 umask 077
 mkdir -p data
 chmod 700 data
