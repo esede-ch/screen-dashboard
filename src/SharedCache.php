@@ -72,21 +72,20 @@ final class SharedCache {
     public static function image(array $box): array {
         $lock = self::lock('image-' . $box['id']);
         try {
-            $entry = self::read('image', $box, OrangeBar::FRESH_SECONDS);
-            if (!$entry || time() - $entry['fetched_at'] >= self::TTL || !isset($entry['value']['bar'])) {
-                $previous = $entry['value']['bar'] ?? [];
-                $value = ['bar' => ['status' => 'unavailable']];
+            $entry = self::read('image', $box);
+            if (!$entry || !array_key_exists('bar_present', $entry['value'])) {
+                $value = ['bar_present' => null];
                 try {
                     $state = self::read('state', $box);
                     $capture = $state['value']['state']['capture'] ?? [];
                     $response = BoxClient::screenshot($box);
                     if (!$response['errno'] && !$response['oversized'] && $response['code'] === 200
                         && str_starts_with($response['body'], "\xff\xd8") && str_ends_with($response['body'], "\xff\xd9")) {
-                        $present = OrangeBar::present($response['body']);
-                        if (isset($capture['age_seconds'])) $capture['age_seconds'] += time() - $state['fetched_at'];
                         $value = [
                             'jpeg' => base64_encode($response['body']),
-                            'bar' => OrangeBar::observation($present, $capture, $previous),
+                            'bar_present' => OrangeBar::present($response['body']),
+                            'captured_at' => isset($capture['age_seconds']) && !empty($capture['available'])
+                                ? $state['fetched_at'] - $capture['age_seconds'] : null,
                         ];
                     }
                 } catch (RuntimeException $error) { /* Cache failures without remote bodies or keys. */ }
@@ -94,15 +93,13 @@ final class SharedCache {
             }
             $jpeg = isset($entry['value']['jpeg']) ? base64_decode($entry['value']['jpeg'], true) : false;
             if ($jpeg === false) throw new RuntimeException('Capture indisponible.', 502);
-            $bar = $entry['value']['bar'];
-            $status = $bar['status'];
-            if (isset($bar['stamp'], $bar['read_through']) &&
-                $bar['read_through'] - $bar['stamp'] + time() - $entry['fetched_at'] > OrangeBar::FRESH_SECONDS) {
-                $status = 'unverified';
-            } elseif ($status === 'ok' && $bar['misses'] === 1) {
-                $status = 'pending';
-            }
-            return ['jpeg' => $jpeg, 'bar' => $status];
+            $capturedAt = $entry['value']['captured_at'];
+            $age = $capturedAt === null ? null : max(0, time() - $capturedAt);
+            return [
+                'jpeg' => $jpeg,
+                'bar' => OrangeBar::status($entry['value']['bar_present'], $age),
+                'fresh_for' => $age === null ? null : max(0, OrangeBar::FRESH_SECONDS + 1 - $age),
+            ];
         } finally { flock($lock, LOCK_UN); fclose($lock); }
     }
     private static function forgetImage(string $id): void {

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 final class OrangeBar {
-    public const FRESH_SECONDS = 90;
+    public const FRESH_SECONDS = 60;
 
     public static function present(string $jpeg): bool {
         $size = @getimagesizefromstring($jpeg);
@@ -43,24 +43,11 @@ final class OrangeBar {
         return false;
     }
 
-    public static function observation(bool $present, array $capture, array $previous): array {
-        $stamp = strtotime($capture['updated_at'] ?? '');
-        $age = $capture['age_seconds'] ?? null;
-        if (!$stamp || !is_int($age) || $age > self::FRESH_SECONDS || empty($capture['available'])) {
-            return ['status' => 'unverified'];
+    public static function status(bool $present, ?int $age): string {
+        if ($age !== null && $age > self::FRESH_SECONDS) {
+            return $present ? 'stale' : 'stale_missing';
         }
-        $last = $previous['stamp'] ?? null;
-        // State and JPEG are separate requests. If their time windows overlap,
-        // the second download may still be the file seen on the previous read.
-        if (!$present && ($previous['misses'] ?? 0) > 0 && $stamp >= $last && $stamp <= $previous['read_through']) {
-            return $previous;
-        }
-        $misses = 0;
-        if (!$present) {
-            $consecutive = $last !== null && $stamp > $last && $stamp - $last <= self::FRESH_SECONDS;
-            $misses = $consecutive ? min(2, $previous['misses'] + 1) : 1;
-        }
-        return ['stamp' => $stamp, 'read_through' => $stamp + $age,
-            'misses' => $misses, 'status' => $misses === 2 ? 'alarm' : 'ok'];
+        if (!$present) return 'alarm';
+        return $age === null ? 'unverified' : 'ok';
     }
 }

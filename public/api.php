@@ -15,6 +15,7 @@ try {
         $image = SharedCache::image($box);
         $jpeg = $image['jpeg'];
         header('X-Orange-Bar: ' . $image['bar']);
+        if ($image['fresh_for'] !== null) header('X-Capture-Fresh-For: ' . $image['fresh_for']);
         header('Content-Type: image/jpeg'); header('Content-Length: ' . strlen($jpeg));
         echo $jpeg; exit;
     }

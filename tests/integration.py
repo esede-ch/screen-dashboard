@@ -644,39 +644,39 @@ class Integration(unittest.TestCase):
         self.api('list',expected=500); self.api('save',dict(name='Test',address=self.address,key=KEY),expected=500)
         self.assertEqual(path.read_text(),'{broken')
 
-    def test_orange_bar_requires_two_distinct_fresh_captures(self):
+    def test_image_alerts_on_age_or_first_missing_bar(self):
         box = self.add()
-        def observe(second, age=3):
-            self.expire_cache()
-            MockBox.capture.update(updated_at=f'2026-11-02T12:00:{second:02d}+01:00', age_seconds=age)
-            self.api('status')
+        def image_status():
             req = urllib.request.Request(self.url + '/api.php?action=image&id=' + box['id'],
                                          headers={'X-Dashboard-Token': self.token})
             with self.client.open(req) as response:
-                return response.headers['X-Orange-Bar']
-        MockBox.jpeg = self.short_image
-        self.assertEqual(observe(0), 'pending')
-        self.assertEqual(observe(0), 'pending')  # same file, even after cache expiry
-        self.assertEqual(observe(2), 'pending')  # metadata overlaps the first JPEG download
-        self.assertEqual(observe(10), 'alarm')
-        MockBox.jpeg = self.orange_image
-        self.assertEqual(observe(20), 'ok')
-        MockBox.jpeg = self.short_image
-        self.assertEqual(observe(22), 'pending')  # same metadata window as the last good JPEG
-        self.assertEqual(observe(30, 91), 'unverified')
-        self.assertEqual(observe(35), 'pending')
-        MockBox.capture['available'] = False
-        self.expire_cache()
-        self.assertFalse(self.api('status')['boxes'][0]['state']['capture']['available'])
-        MockBox.capture['available'] = True
-        self.assertEqual(observe(40), 'pending')
+                return response.headers['X-Orange-Bar'], response.headers.get('X-Capture-Fresh-For')
+        def observe(jpeg, age):
+            self.expire_cache()
+            MockBox.jpeg = jpeg
+            MockBox.capture['age_seconds'] = age
+            self.api('status')
+            return image_status()
+        self.assertEqual(observe(self.short_image, 3)[0], 'alarm')
+        self.assertEqual(observe(self.orange_image, 61), ('stale', '0'))
+        self.assertEqual(observe(self.short_image, 61), ('stale_missing', '0'))
+        self.assertEqual(observe(self.short_image, None), ('alarm', None))
+        self.assertEqual(observe(self.orange_image, None), ('unverified', None))
+        self.assertEqual(observe(self.orange_image, 4)[0], 'ok')
+        # Control elapsed time without sleeping or racing a second boundary.
+        path = next(self.data.glob('shared-image-*.json'))
+        cached = json.loads(path.read_text())
+        status = subprocess.check_output(['php','-r', 'require $argv[1]; echo OrangeBar::status(true,60);',
+                                          str(ROOT/'src/OrangeBar.php')], text=True)
+        self.assertEqual(status, 'ok')
+        cached['value']['captured_at'] = int(time.time()) - 61
+        path.write_text(json.dumps(cached))
+        self.assertEqual(image_status(), ('stale', '0'))
+        self.assertEqual(observe(self.orange_image, 3)[0], 'ok')
         MockBox.jpeg = b'\xff\xd8broken\xff\xd9'
         self.expire_cache()
         self.api('status')
         self.image(box, expected=502)
-        MockBox.jpeg = self.short_image
-        self.assertEqual(observe(50), 'pending')
-        self.assertEqual(observe(55), 'alarm')
 
     def test_ten_clients_share_state_and_image_even_on_simultaneous_cache_miss(self):
         box=self.add(); MockBox.mode='cache-delay'

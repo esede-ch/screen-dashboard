@@ -29,5 +29,4 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--surface)
   background: currentColor;
 }
 [data-capture-status="ok"] .capture-notice { color: var(--success); }
-[data-capture-status="pending"] .capture-notice { color: var(--warning); }
-[data-capture-status="alarm"] .capture-notice { color: var(--danger); }
+:is([data-capture-status="alarm"], [data-capture-status="stale"], [data-capture-status="stale_missing"]) .capture-notice { color: var(--danger); }

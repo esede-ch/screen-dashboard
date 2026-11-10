@@ -23,7 +23,9 @@
         body:body ? JSON.stringify(body) : undefined, cache:'no-store', signal:controller.signal
       });
       if (action === 'image' && response.ok) {
-        return {blob: await response.blob(), bar: response.headers.get('X-Orange-Bar')};
+        const ttl = response.headers.get('X-Capture-Fresh-For');
+        const expires = ttl === null ? null : Date.now() + Number(ttl) * 1000;
+        return {blob: await response.blob(), bar: response.headers.get('X-Orange-Bar'), expires};
       }
       const data = await response.json().catch(() => ({}));
       if (response.status === 401 && data.code === 'auth_required') {
@@ -165,9 +167,10 @@
   const captureLabels = {
     loading: 'Vérification de l’image…',
     ok: 'Image OK',
-    pending: 'Image à confirmer · première absence de la barre orange',
-    alarm: 'Alerte · barre orange absente sur deux captures',
-    unverified: 'Image non vérifiée · fraîcheur inconnue ou capture ancienne',
+    alarm: 'Alerte · barre orange absente',
+    stale: 'Alerte · capture de plus de 60 secondes',
+    stale_missing: 'Alerte · capture de plus de 60 secondes et barre orange absente',
+    unverified: 'Image non vérifiée · âge inconnu',
     unavailable: 'Capture indisponible'
   };
   function showCaptureStatus(card, box, status) {
@@ -240,7 +243,7 @@
         const box=queue.shift(); imageBusy.add(box.id);
         try {
           if(!pageActive || document.hidden)break;
-          const {blob, bar}=await request('image',{id:box.id,timeout:15000,background:true});
+          const {blob, bar, expires}=await request('image',{id:box.id,timeout:15000,background:true});
           if(!boxes.has(box.id) || boxes.get(box.id).revision!==box.revision)continue;
           const url=URL.createObjectURL(blob), check=new Image();check.src=url;
           try {await check.decode();} catch(error) {URL.revokeObjectURL(url);throw error;}
@@ -250,6 +253,15 @@
           card.querySelector('.preview').removeAttribute('title');
           img.src=url; img.hidden=false; card.querySelector('.preview-placeholder').hidden=true; card.querySelector('.preview').disabled=false;
           showCaptureStatus(card, box, bar || 'unverified');
+          if (expires !== null && (bar === 'ok' || bar === 'alarm')) {
+            const markStale = () => {
+              if (images.get(box.id) === url && card.dataset.captureStatus === bar)
+                showCaptureStatus(card, box, bar === 'ok' ? 'stale' : 'stale_missing');
+            };
+            const delay = expires - Date.now();
+            if (delay > 0) setTimeout(markStale, delay);
+            else markStale();
+          }
           if(previewId===box.id) $('large-preview').src=url;
           if(previous)URL.revokeObjectURL(previous);
         } catch(_) {
